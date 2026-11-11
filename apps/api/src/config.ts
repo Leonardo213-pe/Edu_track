@@ -3,7 +3,7 @@ export interface AppConfig {
   databaseUrl: string; jwtSecret: string; port: number; webOrigin: string; mail: MailConfig;
   /** Express "trust proxy" value; undefined keeps Express' default (no proxy trusted). */
   trustProxy?: boolean | number | string;
-  academic?: { storageRoot?: string };
+  academic?: { storageRoot?: string; submissionStorageRoot?: string };
   /** Period of the in-process exam jobs (expiry sweeper and outbox consumer); default 2000 ms. */
   examJobIntervalMs?: number;
   /** Period of the due-date reminder job; default 300000 ms. */
@@ -55,7 +55,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (env.ALLOW_TEST_ENROLLMENTS === 'true' || env.ENROLLMENT_FIXTURES_FILE?.trim())
     throw new Error('Enrollment JSON fixtures were removed; synchronize the official roster through /api/enrollments');
   return { databaseUrl, jwtSecret, port, webOrigin, trustProxy: parseTrustProxy(env.TRUST_PROXY),
-    academic: { storageRoot: env.COURSE_STORAGE_ROOT }, registry: parseRegistry(env),
+    academic: { storageRoot: env.COURSE_STORAGE_ROOT, submissionStorageRoot: env.SUBMISSION_STORAGE_ROOT }, registry: parseRegistry(env),
     alertIntervalMs: positive(env.ALERT_INTERVAL_MS, 'ALERT_INTERVAL_MS'),
     mail: { host, port: smtpPort, from, secure, requireTLS, user: env.SMTP_USER, password: env.SMTP_PASSWORD, webOrigin } };
 }

@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit", "exams", "collaboration", "analytics"]
+  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit", "exams", "collaboration", "analytics", "submissions", "plagiarism"]
 }
 generator courseClient {
   provider = "prisma-client"
@@ -533,4 +533,80 @@ model SecurityEvent {
   @@index([occurredAt])
   @@map("security_events")
   @@schema("identity")
+}
+
+generator submissionClient {
+  provider = "prisma-client"
+  output = "../src/modules/submissions/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+generator plagiarismClient {
+  provider = "prisma-client"
+  output = "../src/modules/plagiarism/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+// Part B: file submissions of rubric assignments (CAR-05, CU-04) with immutable versions and a transactional outbox.
+// The submission -> current file and file -> submission foreign keys exist in SQL only (deferrable cycle).
+model Submission {
+  id String @id @db.Uuid
+  assessmentId String @db.Uuid
+  courseId String @db.Uuid
+  studentId String @db.Uuid
+  version Int
+  currentFileId String @db.Uuid
+  firstSubmittedAt DateTime @db.Timestamptz(3)
+  updatedAt DateTime @db.Timestamptz(3)
+  @@unique([assessmentId, studentId])
+  @@index([courseId])
+  @@map("submissions")
+  @@schema("submissions")
+}
+model SubmissionFile {
+  id String @id @db.Uuid
+  submissionId String @db.Uuid
+  version Int
+  storageKey String @unique @db.VarChar(64)
+  filename String @db.VarChar(180)
+  mimeType String @db.VarChar(120)
+  size Int
+  sha256 String @db.Char(64)
+  textContent String?
+  receivedAt DateTime @db.Timestamptz(3)
+  @@unique([submissionId, version])
+  @@map("files")
+  @@schema("submissions")
+}
+model SubmissionOutbox {
+  id String @id @db.Uuid
+  type String @db.VarChar(40)
+  aggregateId String @db.Uuid
+  payload Json
+  createdAt DateTime @db.Timestamptz(3)
+  availableAt DateTime @db.Timestamptz(3)
+  attempts Int @default(0)
+  processedAt DateTime? @db.Timestamptz(3)
+  lastError String? @db.VarChar(200)
+  @@index([processedAt, availableAt])
+  @@map("outbox")
+  @@schema("submissions")
+}
+// Part B: similarity reports of the SIMULATED plagiarism provider (CAR-10, CU-15).
+model PlagiarismReport {
+  id String @id @db.Uuid
+  fileId String @unique @db.Uuid
+  submissionId String @db.Uuid
+  assessmentId String @db.Uuid
+  courseId String @db.Uuid
+  studentId String @db.Uuid
+  status String @db.VarChar(12)
+  similarityBp Int?
+  matches Json
+  provider String @db.VarChar(40)
+  comparedWith Int
+  createdAt DateTime @db.Timestamptz(3)
+  @@index([assessmentId])
+  @@map("reports")
+  @@schema("plagiarism")
 }

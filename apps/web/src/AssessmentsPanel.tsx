@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { assessmentStates, evaluationApi, points, questionTypes, type Assessment, type Bank, type MyGrades } from './assessments-api';
 import { ExamView } from './ExamView';
+import { StudentSubmission, TeacherSubmissions } from './SubmissionsPanel';
 
 type AttemptRow = { id: string; displayName: string; status: string; startedAt: string; finalizedAt: string | null; finalizedBy: string | null; answered: number; questionCount: number; score: number | null };
 const attemptStates: Record<string, string> = { IN_PROGRESS: 'En curso', SUBMITTED: 'Finalizado', EXPIRED: 'Cerrado por tiempo' };
@@ -24,7 +25,7 @@ function AssessmentForm({ banks, initial, published, busy, submit }: { banks: Ba
     <label>Instrucciones<textarea name="instructions" maxLength={5000} rows={2} defaultValue={initial?.instructions} /></label>
     <div className="form-columns">
       <label>Tipo<select aria-label="Tipo de evaluación" value={type} disabled={published} onChange={event => setType(event.target.value as 'QUIZ' | 'RUBRIC')}>
-        <option value="QUIZ">Cuestionario aleatorio</option><option value="RUBRIC">Tarea con rúbrica</option></select></label>
+        <option value="QUIZ">Cuestionario aleatorio</option><option value="RUBRIC">Tarea (entrega de archivo + rúbrica)</option></select></label>
       <label>Peso (%)<input name="weight" type="number" min={0.01} max={100} step={0.01} required defaultValue={initial ? initial.weightBp / 100 : 20} /></label>
     </div>
     <label>Fecha límite<input name="dueAt" type="datetime-local" required defaultValue={initial ? toLocalInput(initial.dueAt) : undefined} /></label>
@@ -59,6 +60,7 @@ export function AssessmentsPanel({ courseId, courseStatus, token, role, manager,
   const [notice, setNotice] = useState('');
   const [exam, setExam] = useState<string | null>(null);
   const [attempts, setAttempts] = useState<{ title: string; rows: AttemptRow[] } | null>(null);
+  const [delivery, setDelivery] = useState<string | null>(null);
   const student = role === 'STUDENT';
   async function load() {
     try {
@@ -89,10 +91,11 @@ export function AssessmentsPanel({ courseId, courseStatus, token, role, manager,
       : <div className="table-scroll"><table><thead><tr><th>Evaluación</th><th>Tipo</th><th>Peso</th><th>Fecha límite</th><th>Estado</th>{student ? <th>Mi nota</th> : <th>Acciones</th>}</tr></thead><tbody>
         {items.map(item => <tr key={item.id}>
           <td>{item.title}{item.type === 'QUIZ' && <small> · {item.questionCount} preguntas, {item.durationMinutes} min</small>}</td>
-          <td>{item.type === 'QUIZ' ? 'Cuestionario' : 'Rúbrica'}</td><td>{(item.weightBp / 100).toLocaleString('es-PE')} %</td>
+          <td>{item.type === 'QUIZ' ? 'Cuestionario' : 'Tarea'}</td><td>{(item.weightBp / 100).toLocaleString('es-PE')} %</td>
           <td>{new Date(item.dueAt).toLocaleString('es-PE')}</td><td>{assessmentStates[item.status]}</td>
           {student ? <td>{gradeOf(item.id) ? gradeOf(item.id)!.score.toLocaleString('es-PE') : '—'}
-            {item.type === 'QUIZ' && <button className="quiet" aria-label={`Rendir ${item.title}`} onClick={() => setExam(item.id)}>{item.status === 'PUBLISHED' ? 'Rendir / continuar' : 'Ver intento'}</button>}</td> : <td className="material-actions">
+            {item.type === 'QUIZ' && <button className="quiet" aria-label={`Rendir ${item.title}`} onClick={() => setExam(item.id)}>{item.status === 'PUBLISHED' ? 'Rendir / continuar' : 'Ver intento'}</button>}
+            {item.type === 'RUBRIC' && <button className="quiet" aria-label={`Entrega de ${item.title}`} onClick={() => setDelivery(delivery === item.id ? null : item.id)}>Mi entrega</button>}</td> : <td className="material-actions">
             {manager && item.status !== 'CLOSED' && <button className="quiet" disabled={busy} onClick={() => setEditing(editing === item.id ? null : item.id)}>Editar</button>}
             {manager && item.status === 'DRAFT' && <button className="quiet" disabled={busy || courseStatus !== 'PUBLICADO'} title={courseStatus !== 'PUBLICADO' ? 'Publica primero el curso' : undefined}
               onClick={() => run(() => evaluationApi(`/assessments/${item.id}/publish`, token, { revision: item.revision }), 'Evaluación publicada.')}>Publicar</button>}
@@ -102,12 +105,16 @@ export function AssessmentsPanel({ courseId, courseStatus, token, role, manager,
               onClick={() => { if (window.confirm('¿Eliminar el borrador?')) void run(() => evaluationApi(`/assessments/${item.id}?revision=${item.revision}`, token, undefined, 'DELETE'), 'Borrador eliminado.'); }}>Eliminar</button>}
             {manager && item.type === 'QUIZ' && item.status !== 'DRAFT' && <button className="quiet" disabled={busy}
               onClick={async () => { try { setAttempts({ title: item.title, rows: await evaluationApi<AttemptRow[]>(`/exams/assessments/${item.id}/attempts`, token) }); } catch (error) { failed(error); } }}>Intentos</button>}
+            {(manager || role === 'ADMIN') && item.type === 'RUBRIC' && item.status !== 'DRAFT' && <button className="quiet" disabled={busy} onClick={() => setDelivery(delivery === item.id ? null : item.id)}>Entregas</button>}
             {manager && item.type === 'QUIZ' && <button className="quiet" disabled={busy}
               onClick={async () => { try { setPreview(await evaluationApi<Preview>(`/assessments/${item.id}/preview`, token)); } catch (error) { failed(error); } }}>Vista previa del sorteo</button>}
           </td>}
         </tr>)}</tbody></table></div>}
     {manager && editing && items && (() => { const item = items.find(entry => entry.id === editing)!; return <AssessmentForm key={item.id + item.revision} banks={banks} initial={item} published={item.status !== 'DRAFT'} busy={busy}
       submit={input => run(() => evaluationApi(`/assessments/${item.id}`, token, { ...input, revision: item.revision }, 'PATCH'), 'Evaluación actualizada.')} />; })()}
+    {delivery && items && (() => { const item = items.find(entry => entry.id === delivery); if (!item) return null;
+      return student ? <StudentSubmission key={item.id} assessment={item} token={token} failed={failed} />
+        : <TeacherSubmissions key={item.id} assessment={item} token={token} failed={failed} close={() => setDelivery(null)} />; })()}
     {attempts && <section className="panel" aria-label="Intentos del cuestionario"><div className="section-title"><h4>Intentos: {attempts.title}</h4><button className="quiet" onClick={() => setAttempts(null)}>Cerrar ✕</button></div>
       {!attempts.rows.length ? <p className="muted">Aún no hay intentos.</p> : <div className="table-scroll"><table><thead><tr><th>Estudiante</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Respondidas</th><th>Nota</th></tr></thead><tbody>
         {attempts.rows.map(row => <tr key={row.id}><td>{row.displayName}</td><td>{attemptStates[row.status] ?? row.status}</td><td>{new Date(row.startedAt).toLocaleString('es-PE')}</td>

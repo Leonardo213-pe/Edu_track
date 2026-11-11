@@ -6,11 +6,11 @@
   {"id":"course-review","status":"reserved-extraction","owns":"no current data; capability owned by courses per ADR-006","dependencies":[]},
   {"id":"assessments","status":"implemented","owns":"question banks, assessment definitions, lifecycle and frozen question snapshots; random draw","dependencies":["identity","courses","enrollments","audit"]},
   {"id":"exams","status":"implemented","owns":"attempts with server deadline, drawn questions without answers, versioned idempotent answers, AttemptFinalized outbox, expiry sweeper","dependencies":["identity","courses","enrollments","assessments","grading"]},
-  {"id":"submissions","status":"planned","owns":"assignments, submissions, file metadata","dependencies":["courses","enrollments"]},
+  {"id":"submissions","status":"implemented","owns":"file submissions of rubric assignments with immutable versions, server deadline, extracted text and SubmissionReceived outbox","dependencies":["identity","courses","enrollments","assessments","grading","collaboration"]},
   {"id":"grading","status":"implemented","owns":"LMS grades (Strategy: automatic, rubric), versions with reasons, weighted averages","dependencies":["identity","courses","enrollments","assessments","collaboration","audit"]},
   {"id":"collaboration","status":"implemented","owns":"forums per course/unit, threads, messages with moderation, subscriptions (Observer), notification inbox, due-date reminders","dependencies":["identity","courses","enrollments","assessments"]},
   {"id":"analytics","status":"implemented","owns":"connection time per student/course/day, configurable risk rules per course, explainable risk projection","dependencies":["identity","courses","enrollments","assessments","grading"]},
-  {"id":"plagiarism","status":"planned","owns":"external-check requests, provider translation, reports","dependencies":["submissions"]},
+  {"id":"plagiarism","status":"implemented-simulated","owns":"similarity reports per submitted file from the PlagiarismProvider port (SIMULATED n-gram provider locally), asynchronous idempotent outbox consumer","dependencies":["identity","courses","assessments","submissions"]},
   {"id":"audit","status":"implemented","owns":"append-only hash-chained audit entries, database write contract audit.append_entry and chain verification","dependencies":["identity"]},
   {"id":"administration","status":"implemented","owns":"operational alerts to administrators (registry failures); monitoring views","dependencies":["identity","enrollments","collaboration"]}
 ]

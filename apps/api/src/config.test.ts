@@ -12,7 +12,7 @@ describe('runtime configuration', () => {
   it('rejects removed enrollment fixtures and invalid secrets', () => {
     expect(() => loadConfig({ ...base, ALLOW_TEST_ENROLLMENTS: 'true' })).toThrow('fixtures were removed');
     expect(() => loadConfig({ ...base, ENROLLMENT_FIXTURES_FILE: '/tmp/x.json' })).toThrow('fixtures were removed');
-    expect(loadConfig({ ...base, ALLOW_TEST_ENROLLMENTS: 'false' }).academic).toEqual({ storageRoot: undefined });
+    expect(loadConfig({ ...base, ALLOW_TEST_ENROLLMENTS: 'false' }).academic).toEqual({ storageRoot: undefined, submissionStorageRoot: undefined });
     expect(() => loadConfig({ ...base, JWT_SECRET: 'short' })).toThrow('JWT_SECRET');
   });
   it('configures the (SIMULATED) Academic Registry only with a URL and a strong key together', () => {

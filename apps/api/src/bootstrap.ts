@@ -14,6 +14,8 @@ import { ExamsModule } from './modules/exams/exams.module';
 import { CollaborationModule } from './modules/collaboration/collaboration.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AdministrationModule } from './modules/administration/administration.module';
+import { SubmissionsModule } from './modules/submissions/submissions.module';
+import { PlagiarismModule } from './modules/plagiarism/plagiarism.module';
 import type { AppConfig } from './config';
 
 @Controller('health')
@@ -34,7 +36,10 @@ class AppModule {
     const assessments = AssessmentsModule.register(identity, enrollments, courses, { databaseUrl: config.databaseUrl });
     const collaboration = CollaborationModule.register([identity, enrollments, courses, assessments], { databaseUrl: config.databaseUrl, reminderIntervalMs: config.reminderIntervalMs });
     const grading = GradingModule.register(identity, enrollments, courses, assessments, collaboration, { databaseUrl: config.databaseUrl });
-    return { module: AppModule, imports: [identity, enrollments, courses, assessments, collaboration, grading,
+    const submissions = SubmissionsModule.register([identity, enrollments, courses, assessments, grading, collaboration],
+      { databaseUrl: config.databaseUrl, storageRoot: config.academic?.submissionStorageRoot });
+    return { module: AppModule, imports: [identity, enrollments, courses, assessments, collaboration, grading, submissions,
+      PlagiarismModule.register([identity, courses, assessments, submissions], { databaseUrl: config.databaseUrl, jobIntervalMs: config.examJobIntervalMs }),
       ExamsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl, jobIntervalMs: config.examJobIntervalMs }),
       AnalyticsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl }),
       AuditModule.register(identity, { databaseUrl: config.databaseUrl }),

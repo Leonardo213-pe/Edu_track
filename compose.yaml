@@ -28,6 +28,7 @@ services:
       SMTP_PORT: 1025
       SMTP_FROM: EduTrack <noreply@edutrack.test>
       COURSE_STORAGE_ROOT: /app/storage/courses
+      SUBMISSION_STORAGE_ROOT: /app/storage/submissions
       # Only Nginx (private Compose network) may set X-Forwarded-For; rate limits then apply per real client.
       TRUST_PROXY: uniquelocal
       # SIMULADO: Registro Académico de demostración (servicio "registry"), consumido por el adaptador REST de enrollments.
