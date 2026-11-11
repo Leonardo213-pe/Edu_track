@@ -8,7 +8,8 @@ coverage/
 tmp/
 apps/api/src/modules/identity/infrastructure/persistence/generated/
 apps/api/src/modules/courses/infrastructure/persistence/generated/
-storage/
+/storage/
+/apps/api/storage/
 *.tsbuildinfo
 test-results/
 playwright-report/
