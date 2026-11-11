@@ -4,4 +4,6 @@ export interface EnrollmentAccess {
   isEnrolled(studentId: string, courseId: string): Promise<boolean>;
   /** Course IDs where the student is currently enrolled. */
   coursesOf(studentId: string): Promise<string[]>;
+  /** Student IDs currently enrolled in the course. */
+  studentsOf(courseId: string): Promise<string[]>;
 }

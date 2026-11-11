@@ -1,6 +1,20 @@
 # Plan de carga y resiliencia
 
-Estado: **definido, no ejecutado**. Exámenes y autoguardado aún no existen. No medir salud/login y presentarlo como capacidad de exámenes. Herramienta propuesta: k6, en generadores separados de las réplicas del LMS; no se necesita para el incremento actual.
+Estado: **medición local ejecutada; certificación pendiente.** Los exámenes y el autoguardado existen desde la fase 5 ([ADR-009](ADR/009-examenes-concurrentes.md)). No se debe medir solo salud o login y presentarlo como capacidad de exámenes. Herramienta prevista para el entorno representativo: k6, en generadores separados de las réplicas del LMS.
+
+## Medición local ejecutada (fase 5)
+
+El script `apps/api/test/load/autosave.load.mjs` (`npm run test:load`) actúa así:
+- Solo funciona contra `edutrack_test`.
+- Precrea los usuarios, inicia sesión con IP simulada por estudiante y crea curso, matrícula, banco de 20 preguntas y cuestionario de 10 preguntas por intento.
+- En la fase medida, todos los estudiantes guardan a la vez.
+- Después reconcilia cada ACK con PostgreSQL, finaliza todos los intentos y espera la calificación automática.
+
+| Fecha | Entorno | Carga | Resultado |
+| --- | --- | --- | --- |
+| 2026-11-14 | Un proceso API local (Windows) y PostgreSQL 17 en Docker (tmpfs) | 200 estudiantes × 10 guardados, todos simultáneos (2000 PUT) | 2000/2000 HTTP 200, **0 ACK perdidos**, p50 485 ms, p95 724 ms, p99 859 ms, máx. 930 ms, 390 guardados/s; 200/200 intentos calificados en 5,3 s |
+
+Este resultado **no certifica EAC-01 ni EAC-02**: una réplica, la máquina del desarrollador, sin red real y 200 y no 3000 estudiantes. Los escenarios siguientes siguen pendientes en un entorno representativo.
 
 ## Datos y ambiente
 

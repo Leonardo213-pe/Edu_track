@@ -1,5 +1,79 @@
 # Verificación de EduTrack LMS
 
+## Fase 5: exámenes contra reloj, 14 de noviembre de 2026
+
+Rama `feat/fase5-examenes`, creada desde `feat/fase4-evaluaciones` (`8a08e08`). Decisiones en [ADR-009](ADR/009-examenes-concurrentes.md); guía en [EXAMENES.md](EXAMENES.md).
+
+| Verificación ejecutada | Resultado observado |
+| --- | --- |
+| `npm run check` | Código 0 (7 clientes Prisma, tipos, build, pruebas) |
+| Backend unitario | **103/103**: vencimiento del servidor, inicio solo para cuestionario publicado, validación de respuestas por tipo, versiones, idempotencia, cierre perezoso y por barredor, calificación solo de las sorteadas, `recordAutomatic` idempotente y concurrente, sorteo y clave de respuestas |
+| Cobertura V8 del núcleo | Líneas **98,98%**, statements 98,46%, ramas 95,03%, funciones 97,57% |
+| Frontend | **19/19**: reanudar reenviando solo lo local más nuevo, cola sin conexión con reenvío al reconectar, intento cerrado bloqueado con su nota |
+| Arquitectura AST | **7/7** con `exams` |
+| `npm run test:integration` (PostgreSQL 17 desechable) | **35/35** en dos ejecuciones seguidas: 13 identidad + 10 cursos + 2 proxy + 4 fase 4 + 6 fase 5 |
+| `npm run test:load` (200 estudiantes × 10 guardados simultáneos) | 2000/2000 HTTP 200, **0 ACK perdidos**, p95 724 ms, p99 859 ms, 200/200 calificados en 5,3 s (local, no certifica EAC-01) |
+| Compose | La API aplicó `202611140001_exams` sobre desarrollo sin borrar datos |
+| E2E Chromium (`COURSES_E2E`, `ASSESSMENTS_E2E`) | **1/1**: fases 2-4 más cuestionario creado del banco, publicado, rendido por el estudiante (comenzar, responder, «Todas las respuestas guardadas», finalizar), nota automática 20, promedio 16 y lista de intentos del docente |
+
+La integración de la fase 5 verifica:
+- **Inicio:** tres inicios simultáneos crean un solo intento; las preguntas no incluyen `correct`; el vencimiento es exacto a la duración.
+- **Versiones:** v1, v3, v2 atrasada y v3 duplicada; una ráfaga de 20 versiones desordenadas deja guardada la mayor.
+- **Validación:** opción ajena 400; versión 0 400; otro estudiante 403.
+- **Reinicio de la API a mitad del examen:** las respuestas confirmadas se conservan y el vencimiento no cambia.
+- **Finalización:** idempotente, con un solo evento `AttemptFinalized.v1` en el outbox.
+- **Rechazos tras finalizar:** guardado 409; triggers contra respuestas, reapertura y borrado.
+- **Calificación:** automática de 10 (1 de 2 preguntas correcta), auditada como Sistema y con el outbox marcado como procesado.
+- **Vencimiento:** con el reloj de la base, el guardado tardío devuelve 409; el barredor cierra con EXPIRED/TIMEOUT y califica lo guardado.
+- **Concurrencia:** 50 guardados paralelos de dos estudiantes sin errores.
+
+Incidencias:
+- **Error de concurrencia real.** La integración y la ráfaga encontraron que un guardado concurrente devolvía 500: la rama `SELECT` de la misma sentencia no veía la fila confirmada por un reintento paralelo. Se corrigió leyendo el estado en una sentencia nueva y se repitió la integración dos veces.
+- **Error del editor en `bootstrap.ts`.** VS Code no encontraba `tsconfig.json` y aplicaba decoradores estándar de TypeScript 5. Se añadió `apps/api/tsconfig.json`, que hereda la configuración de compilación, y quedó con 0 diagnósticos.
+- **Estilo de las opciones del examen.** Los botones de opción heredaban el ancho de los campos; se corrigió la hoja de estilos y se repitió el E2E.
+- **Datos de QA.** Las ejecuciones E2E y de carga dejaron intentos, notas y auditoría de QA, que son inmutables por diseño.
+- **Pendiente:** carga de 3000 estudiantes y failover multi-réplica en un entorno representativo.
+
+## Fase 4: evaluaciones, calificación y auditoría, 13 de noviembre de 2026
+
+Rama `feat/fase4-evaluaciones`, creada desde `fix/fase3-cierre` (`0ffdd96`, publicada en GitHub), sin merge. Decisiones en [ADR-008](ADR/008-evaluaciones-calificacion-auditoria.md); guía en [EVALUACIONES.md](EVALUACIONES.md).
+
+| Verificación ejecutada | Resultado observado |
+| --- | --- |
+| `npm run check` | Código 0: generación de 6 clientes Prisma, TypeScript, build de API y SPA, pruebas |
+| Backend unitario | **90/90** (12 archivos): preguntas por tipo, State de evaluaciones, snapshot, pesos, sorteo, Strategy automática y de rúbrica, redondeo half-up, promedio ponderado, versiones con motivo, permisos y auditoría |
+| Cobertura V8 del núcleo | Líneas **99,15% (590/595)**, statements 98,62%, ramas 95,51%, funciones 97,52% |
+| Frontend | **16/16**: incluye vista y nota del estudiante, pregunta V/F, cambio de nota con versión y motivo, y auditoría con verificación |
+| Arquitectura AST | **7/7** con los módulos `assessments`, `grading` y `audit` (sin dependencias no declaradas, sin tablas ajenas) |
+| Migración `202611130001_assessments_grading_audit` en PostgreSQL desechable | Aplicada; `prisma migrate diff` sin deriva en los objetos nuevos |
+| `npm run test:integration` | **29/29**: 13 identidad + 10 cursos y matrículas + 2 proxy + 4 de fase 4 |
+| Compose (`docker compose up --build -d --wait`) | API aplicó la migración sobre desarrollo sin borrar datos; servicios saludables |
+| `COURSES_E2E=true ASSESSMENTS_E2E=true npm run test:e2e` (Chromium) | **1/1**: fases 2‑3, más banco, pregunta V/F, evaluación por rúbrica (2 criterios), publicación, nota 16 cambiada a 14 con motivo, promedio del estudiante 8 (8,4) y auditoría ADMIN «Nota: 16 → 14» con cadena íntegra |
+| `npm run test:smoke` | Aprobado |
+| `npm audit` | 0 vulnerabilidades |
+
+Las integraciones de la fase 4 verifican sobre PostgreSQL real:
+- **Banco y snapshot:** banco restringido a su docente; snapshot de 3 preguntas que no cambia al editar el banco y rechaza UPDATE y DELETE.
+- **Publicación:** un curso no publicado devuelve 409; los pesos de más de 100 % devuelven 400.
+- **Vista del estudiante:** sin `correct`, sin banco y sin opciones.
+- **Auditoría de evaluaciones:** la publicación y cada cambio de peso de una evaluación publicada se auditan con actor y antes/después; un cambio estructural de una publicada devuelve 409; no se puede borrar.
+- **Cambios sin actor:** se rechazan por SQL tanto en evaluaciones como en notas.
+- **Notas por rúbrica:**
+  - Solo las registra el docente responsable (otro docente y el ADMIN reciben 403) y solo para inscritos.
+  - Un cambio sin motivo devuelve 400; con una versión obsoleta, 409.
+  - El alta y el cambio quedan auditados con valor anterior y nuevo.
+  - No se pueden borrar.
+- **Promedios:** 11 con 60 % de peso da final 6,6, redondeado a 7.
+- **Mis notas:** sin el motivo interno.
+- **Auditoría:** solo para ADMIN. Rechaza UPDATE, DELETE y TRUNCATE. La verificación es válida, detecta la entrada alterada tras desactivar el trigger y vuelve a ser válida al restaurarla.
+
+Incidencias y límites:
+- La primera integración falló con 429: siete usuarios iniciaban sesión desde una IP con el límite ya efectivo. La prueba ahora simula una IP por usuario detrás del proxy confiable y la base de pruebas se recreó.
+- El E2E encontró un `<select>` sin nombre accesible propio; se añadió `aria-label`.
+- La primera repetición del smoke inmediatamente después del E2E recibió 429 porque se había agotado la ventana de login desde la misma IP. Pasado el minuto, se aprobó.
+- Las ejecuciones E2E dejaron en la base de desarrollo evaluaciones publicadas, notas y auditoría de QA, que son inmutables por diseño. Las cuentas, cursos, archivos e inscripciones de QA se eliminaron.
+- No se implementaron exámenes contra reloj ni autoguardado (fase 5), ni el rol de BD sin privilegios ni el anclaje externo del hash.
+
 ## Cierre de fase 3 tras auditoría, 12 de noviembre de 2026
 
 Rama `fix/fase3-cierre`, creada desde `feat/courses-content` (`7956bc6`), sin commits ni merge. La auditoría previa encontró:

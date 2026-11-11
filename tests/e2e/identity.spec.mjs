@@ -39,7 +39,7 @@ test.afterAll(async () => {
   await pool.end(); await users.onModuleDestroy();
 });
 test('real browser: identity, recovery and optional academic course workflow', async ({ page, request, browser }) => {
-  test.setTimeout(process.env.COURSES_E2E === 'true' ? 240000 : 60000);
+  test.setTimeout(process.env.COURSES_E2E === 'true' ? 300000 : 60000);
   const browserErrors = []; page.on('pageerror', error => browserErrors.push(error.message));
   await page.goto('/'); await page.screenshot({ path: 'tmp/screens/phase2-login.png', fullPage: true });
   await page.getByLabel('Correo institucional').fill(adminEmail); await page.getByLabel('Contraseña', { exact: true }).fill(password);

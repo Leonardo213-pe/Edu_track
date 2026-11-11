@@ -4,6 +4,8 @@ export interface AppConfig {
   /** Express "trust proxy" value; undefined keeps Express' default (no proxy trusted). */
   trustProxy?: boolean | number | string;
   academic?: { storageRoot?: string };
+  /** Period of the in-process exam jobs (expiry sweeper and outbox consumer); default 2000 ms. */
+  examJobIntervalMs?: number;
 }
 export function parseTrustProxy(value: string | undefined): AppConfig['trustProxy'] {
   if (value === undefined || value.trim() === '') return undefined;

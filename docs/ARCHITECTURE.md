@@ -62,6 +62,14 @@ Archivos reales en volumen privado, claves UUID, firma/MIME/tamaño, SHA-256, ve
 
 `TRUST_PROXY` define los proxies confiables de Express. Nginx sobrescribe `X-Forwarded-For` con la IP real, de modo que el limitador funciona por cliente y no admite suplantación. La prueba AST también verifica la raíz de composición, las dependencias reales frente a `modules.json` y que cada adaptador Prisma use solo las tablas y el SQL de su propio esquema.
 
+## Evaluaciones, calificación y auditoría implementadas (fase 4)
+
+`assessments` posee bancos, preguntas, evaluaciones (State BORRADOR/PUBLICADA/CERRADA) y el snapshot inmutable de preguntas al publicar; las respuestas correctas nunca salen hacia estudiantes. `grading` aplica Strategy (automática y rúbrica), notas versionadas con motivo y promedios ponderados en centésimas enteras. `audit` posee `audit.entries` con hash SHA-256 encadenado; su contrato de escritura es la función `audit.append_entry`, invocada por triggers en `grading.grades` y `assessments.assessments`, de modo que cada cambio auditable y su entrada se confirman en la misma transacción (el actor se declara con `set_config('edutrack.actor', …, true)`). Un guard Bearer genérico en `src/platform/http` autentica mediante el contrato público de identidad. Ver [ADR-008](ADR/008-evaluaciones-calificacion-auditoria.md) y [EVALUACIONES.md](EVALUACIONES.md).
+
+## Exámenes implementados (fase 5)
+
+`exams` posee intentos (vencimiento fijado por el servidor, preguntas sorteadas sin respuestas), respuestas por intento/pregunta con versión monotónica y un outbox transaccional. El guardado se acepta solo con el intento abierto según el reloj de PostgreSQL y una versión mayor; el ACK sale tras el commit. La finalización (o el barredor de vencidos, `SKIP LOCKED`) escribe `AttemptFinalized.v1` en la misma transacción; un consumidor dentro del mismo backend califica con `GradeRecorder` (Strategy automática, idempotente por intento, auditado como Sistema). Ver [ADR-009](ADR/009-examenes-concurrentes.md) y [EXAMENES.md](EXAMENES.md).
+
 ## Comunicación futura y consistencia
 
 Los contratos son DTO inmutables y versionados; eventos incluyen `eventId`, `occurredAt`, `schemaVersion`, `aggregateId` y `correlationId`. Consumidores idempotentes con inbox. Para efectos durables usar outbox transaccional en PostgreSQL y consumidor alojado en el **mismo ejecutable backend**. Una sola réplica debe reclamar cada trabajo mediante lease/claim atómico (`SKIP LOCKED` para trabajos, no bloqueo prolongado de intentos). No hay broker ni EventBus ficticio en el incremento inicial. Una llamada interna no durable solo sirve para efectos que se pueden perder.

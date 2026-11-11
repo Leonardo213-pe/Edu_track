@@ -32,6 +32,11 @@ export class CourseService implements CourseCatalog {
     return course?.visibleToStudents() ? { id, code: course.data.code, name: course.data.name, teacherId: course.data.teacherId } : null;
   }
 
+  async describe(id: string) {
+    const course = await this.repo.find(id);
+    return course ? { id, code: course.data.code, name: course.data.name, teacherId: course.data.teacherId, status: course.data.status } : null;
+  }
+
   async list(userId: string) {
     const actor = await this.actor(userId);
     let courses: Course[];

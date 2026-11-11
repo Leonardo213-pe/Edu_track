@@ -50,5 +50,61 @@ export async function verifyCourses({ studentPage, browser, teacher, designer, a
   await expect(studentPage.getByRole('button', { name: 'Historial', exact: true })).toHaveCount(0);
   await studentPage.setViewportSize({ width: 390, height: 844 }); expect(await studentPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await studentPage.screenshot({ path: 'tmp/screens/phase3-student.png', fullPage: true });
+  if (process.env.ASSESSMENTS_E2E === 'true') await verifyAssessments({ page, studentPage, signIn, code, teacher, admin });
   await context.close();
+}
+
+/** Phase 4 in a real browser: bank, rubric assessment, publication, grade + audited change, student average and audit log. */
+async function verifyAssessments({ page, studentPage, signIn, code, teacher, admin }) {
+  await page.getByRole('button', { name: /Cerrar sesión/ }).click(); await signIn(page, teacher.email);
+  await page.getByRole('button', { name: 'Cursos', exact: true }).click(); await page.getByLabel('Buscar cursos').fill(code); await page.getByRole('button', { name: /Abrir curso/ }).click();
+  await page.getByRole('button', { name: 'Banco de preguntas', exact: true }).click();
+  await page.getByLabel('Nombre del banco').fill('Banco QA'); await page.getByRole('button', { name: 'Crear banco' }).click(); await expect(page.getByRole('status')).toHaveText('Banco creado.');
+  await page.getByText('+ Agregar pregunta a Banco QA').click(); await page.getByLabel('Tipo de pregunta').selectOption('TRUE_FALSE');
+  await page.getByLabel('Enunciado').fill('La arquitectura hexagonal aísla el dominio.'); await page.getByRole('button', { name: /Agregar pregunta/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Pregunta agregada.');
+  await page.getByRole('button', { name: 'Evaluaciones', exact: true }).click(); await page.getByRole('button', { name: /Nueva evaluación/ }).click();
+  const form = page.getByRole('form', { name: 'Nueva evaluación' });
+  await form.getByLabel('Título de la evaluación').fill('Ensayo QA'); await form.getByLabel('Tipo de evaluación').selectOption('RUBRIC');
+  await form.getByLabel('Peso (%)').fill('60'); await form.getByLabel('Fecha límite').fill('2026-12-15T10:00');
+  await form.getByLabel('Criterio 1', { exact: true }).fill('Argumentación'); await form.getByLabel('Puntaje máximo del criterio 1').fill('15');
+  await form.getByRole('button', { name: '+ Criterio' }).click(); await form.getByLabel('Criterio 2', { exact: true }).fill('Redacción'); await form.getByLabel('Puntaje máximo del criterio 2').fill('5');
+  await form.getByRole('button', { name: /Crear evaluación/ }).click(); await expect(page.getByRole('status')).toHaveText('Evaluación creada en borrador.');
+  await page.getByRole('button', { name: 'Publicar', exact: true }).click(); await expect(page.getByRole('status')).toHaveText('Evaluación publicada.');
+  await page.getByRole('button', { name: 'Calificaciones', exact: true }).click();
+  await page.getByRole('button', { name: 'Calificar Ensayo QA de Estudiante actualizado' }).click();
+  await page.getByLabel('Argumentación (máx. 15)').fill('12'); await page.getByLabel('Redacción (máx. 5)').fill('4'); await page.getByRole('button', { name: /Guardar nota/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Nota registrada: 16.');
+  await page.getByRole('button', { name: 'Cambiar Ensayo QA de Estudiante actualizado' }).click(); await page.getByLabel('Argumentación (máx. 15)').fill('10');
+  await page.getByLabel('Motivo del cambio de nota').fill('Revisión del ensayo solicitada por el estudiante'); await page.getByRole('button', { name: /Guardar nota/ }).click();
+  await expect(page.getByRole('status')).toHaveText('Nota registrada: 14.'); await page.screenshot({ path: 'tmp/screens/phase4-gradebook.png', fullPage: true });
+
+  await studentPage.setViewportSize({ width: 1440, height: 1000 }); await studentPage.getByRole('button', { name: 'Evaluaciones', exact: true }).click();
+  await expect(studentPage.getByText('Promedio ponderado: 8')).toBeVisible(); await expect(studentPage.getByRole('row', { name: /Ensayo QA/ })).toContainText('14');
+  await expect(studentPage.getByRole('button', { name: /Publicar|Calificar/ })).toHaveCount(0); await studentPage.screenshot({ path: 'tmp/screens/phase4-student.png', fullPage: true });
+
+  // Phase 5: timed quiz drawn from the bank, autosave confirmed by the server, finalization and automatic grade.
+  await page.getByRole('button', { name: 'Evaluaciones', exact: true }).click(); await page.getByRole('button', { name: /Nueva evaluación/ }).click();
+  const quizForm = page.getByRole('form', { name: 'Nueva evaluación' });
+  await quizForm.getByLabel('Título de la evaluación').fill('Cuestionario QA'); await quizForm.getByLabel('Peso (%)').fill('40');
+  await quizForm.getByLabel('Fecha límite').fill('2026-12-20T10:00'); await quizForm.getByLabel('Banco de preguntas').selectOption({ label: 'Banco QA' });
+  await quizForm.getByLabel('Preguntas por intento').fill('1'); await quizForm.getByLabel('Duración (minutos)').fill('10');
+  await quizForm.getByRole('button', { name: /Crear evaluación/ }).click(); await expect(page.getByRole('status')).toHaveText('Evaluación creada en borrador.');
+  await page.getByRole('row', { name: /Cuestionario QA/ }).getByRole('button', { name: 'Publicar', exact: true }).click(); await expect(page.getByRole('status')).toHaveText('Evaluación publicada.');
+  studentPage.on('dialog', dialog => dialog.accept());
+  await studentPage.getByRole('button', { name: 'Recargar ↻' }).click(); await studentPage.getByRole('button', { name: 'Evaluaciones', exact: true }).click();
+  await studentPage.getByRole('button', { name: 'Rendir Cuestionario QA' }).click(); await studentPage.getByRole('button', { name: /Comenzar examen/ }).click();
+  await expect(studentPage.getByRole('timer')).toContainText('Tiempo restante: 0');
+  await studentPage.getByLabel('Verdadero').check(); await expect(studentPage.getByText('Todas las respuestas guardadas')).toBeVisible();
+  await studentPage.screenshot({ path: 'tmp/screens/phase5-exam.png', fullPage: true });
+  await studentPage.getByRole('button', { name: /Finalizar examen/ }).click(); await expect(studentPage.getByText('Intento finalizado')).toBeVisible();
+  await expect(studentPage.getByText('Tu nota: 20')).toBeVisible({ timeout: 15000 }); await studentPage.screenshot({ path: 'tmp/screens/phase5-result.png', fullPage: true });
+  await studentPage.getByRole('button', { name: /Volver a evaluaciones/ }).click(); await expect(studentPage.getByText('Promedio ponderado: 16')).toBeVisible();
+  await page.getByRole('row', { name: /Cuestionario QA/ }).getByRole('button', { name: 'Intentos', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Intentos del cuestionario' }).getByRole('row', { name: /Estudiante actualizado/ })).toContainText('Finalizado');
+
+  await page.getByRole('button', { name: /Cerrar sesión/ }).click(); await signIn(page, admin.email);
+  await page.getByRole('button', { name: 'Auditoría', exact: true }).click(); await page.getByLabel('Tipo de registro').selectOption('GRADE');
+  await expect(page.getByText(/16 → 14/).first()).toBeVisible(); await page.getByRole('button', { name: /Verificar integridad/ }).click();
+  await expect(page.getByText(/Cadena íntegra/)).toBeVisible(); await page.screenshot({ path: 'tmp/screens/phase4-audit.png', fullPage: true });
 }

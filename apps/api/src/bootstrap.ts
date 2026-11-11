@@ -7,6 +7,10 @@ import helmet from 'helmet';
 import { IdentityModule, IDENTITY_READINESS } from './modules/identity/identity.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { CoursesModule } from './modules/courses/courses.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AssessmentsModule } from './modules/assessments/assessments.module';
+import { GradingModule } from './modules/grading/grading.module';
+import { ExamsModule } from './modules/exams/exams.module';
 import type { AppConfig } from './config';
 
 @Controller('health')
@@ -23,8 +27,12 @@ class AppModule {
   static register(config: AppConfig): DynamicModule {
     const identity = IdentityModule.register(config);
     const enrollments = EnrollmentsModule.register(identity, { databaseUrl: config.databaseUrl });
-    return { module: AppModule, imports: [identity, enrollments,
-      CoursesModule.register(identity, enrollments, { databaseUrl: config.databaseUrl, storageRoot: config.academic?.storageRoot }),
+    const courses = CoursesModule.register(identity, enrollments, { databaseUrl: config.databaseUrl, storageRoot: config.academic?.storageRoot });
+    const assessments = AssessmentsModule.register(identity, enrollments, courses, { databaseUrl: config.databaseUrl });
+    const grading = GradingModule.register(identity, enrollments, courses, assessments, { databaseUrl: config.databaseUrl });
+    return { module: AppModule, imports: [identity, enrollments, courses, assessments, grading,
+      ExamsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl, jobIntervalMs: config.examJobIntervalMs }),
+      AuditModule.register(identity, { databaseUrl: config.databaseUrl }),
       ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }])],
       controllers: [HealthController], providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }] };
   }
@@ -35,7 +43,7 @@ export async function createApplication(config: AppConfig) {
   if (config.trustProxy !== undefined) app.set('trust proxy', config.trustProxy);
   app.setGlobalPrefix('api');
   app.use(helmet());
-  app.enableCors({ origin: config.webOrigin, methods: ['GET', 'POST', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] });
+  app.enableCors({ origin: config.webOrigin, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   app.enableShutdownHooks();
   return app;

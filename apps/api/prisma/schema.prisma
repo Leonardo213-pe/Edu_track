@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas = ["identity", "courses", "enrollments"]
+  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit", "exams"]
 }
 generator courseClient {
   provider = "prisma-client"
@@ -20,6 +20,172 @@ generator enrollmentClient {
   output = "../src/modules/enrollments/infrastructure/persistence/generated"
   moduleFormat = "cjs"
   importFileExtension = "js"
+}
+
+generator assessmentClient {
+  provider = "prisma-client"
+  output = "../src/modules/assessments/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+generator gradingClient {
+  provider = "prisma-client"
+  output = "../src/modules/grading/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+generator auditClient {
+  provider = "prisma-client"
+  output = "../src/modules/audit/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+
+// Phase 4: question banks, assessment definitions and frozen question snapshots (CAR-04).
+model QuestionBank {
+  id String @id @db.Uuid
+  courseId String @db.Uuid
+  name String @db.VarChar(160)
+  createdAt DateTime @db.Timestamptz(3)
+  questions Question[]
+  @@unique([courseId, name])
+  @@map("banks")
+  @@schema("assessments")
+}
+model Question {
+  id String @id @db.Uuid
+  bankId String @db.Uuid
+  bank QuestionBank @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  type String @db.VarChar(12)
+  statement String
+  pointsCents Int
+  options Json
+  active Boolean @default(true)
+  version Int @default(0)
+  createdAt DateTime @db.Timestamptz(3)
+  @@index([bankId])
+  @@map("questions")
+  @@schema("assessments")
+}
+model Assessment {
+  id String @id @db.Uuid
+  courseId String @db.Uuid
+  title String @db.VarChar(160)
+  instructions String
+  type String @db.VarChar(10)
+  weightBp Int
+  dueAt DateTime @db.Timestamptz(3)
+  durationMinutes Int?
+  questionCount Int?
+  bankId String? @db.Uuid
+  criteria Json
+  status String @db.VarChar(10)
+  revision Int @default(0)
+  publishedAt DateTime? @db.Timestamptz(3)
+  createdAt DateTime @db.Timestamptz(3)
+  snapshot SnapshotQuestion[]
+  @@index([courseId])
+  @@map("assessments")
+  @@schema("assessments")
+}
+model SnapshotQuestion {
+  assessmentId String @db.Uuid
+  assessment Assessment @relation(fields: [assessmentId], references: [id])
+  questionId String @db.Uuid
+  position Int
+  type String @db.VarChar(12)
+  statement String
+  pointsCents Int
+  options Json
+  @@id([assessmentId, questionId])
+  @@map("snapshot_questions")
+  @@schema("assessments")
+}
+
+// Phase 4: LMS grades (not the official registry). Every insert/update is audited by trigger (CAR-12).
+model Grade {
+  id String @id @db.Uuid
+  assessmentId String @db.Uuid
+  courseId String @db.Uuid
+  studentId String @db.Uuid
+  scoreCents Int
+  origin String @db.VarChar(10)
+  detail Json
+  reason String
+  gradedBy String @db.Uuid
+  gradedAt DateTime @db.Timestamptz(3)
+  version Int @default(0)
+  @@unique([assessmentId, studentId])
+  @@index([courseId, studentId])
+  @@map("grades")
+  @@schema("grading")
+}
+
+// Phase 4: append-only, hash-chained audit log (CAR-12, EAC-04). Written only through audit.append_entry.
+model AuditEntry {
+  id BigInt @id @default(autoincrement())
+  entity String @db.VarChar(40)
+  entityId String @db.Uuid
+  action String @db.VarChar(10)
+  before Json?
+  after Json?
+  actorId String @db.Uuid
+  occurredAt DateTime @db.Timestamptz(6)
+  prevHash String @db.Char(64)
+  hash String @unique @db.Char(64)
+  @@index([entity, entityId])
+  @@map("entries")
+  @@schema("audit")
+}
+
+generator examClient {
+  provider = "prisma-client"
+  output = "../src/modules/exams/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+// Phase 5: timed attempts (CU-03), versioned idempotent answers (CAR-11) and the transactional outbox.
+model ExamAttempt {
+  id String @id @db.Uuid
+  assessmentId String @db.Uuid
+  courseId String @db.Uuid
+  studentId String @db.Uuid
+  status String @db.VarChar(12)
+  startedAt DateTime @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  finalizedAt DateTime? @db.Timestamptz(3)
+  finalizedBy String? @db.VarChar(10)
+  questions Json
+  answers ExamAnswer[]
+  @@unique([assessmentId, studentId])
+  @@index([status, expiresAt])
+  @@map("attempts")
+  @@schema("exams")
+}
+model ExamAnswer {
+  attemptId String @db.Uuid
+  attempt ExamAttempt @relation(fields: [attemptId], references: [id])
+  questionId String @db.Uuid
+  optionIds Json
+  version BigInt
+  savedAt DateTime @db.Timestamptz(3)
+  @@id([attemptId, questionId])
+  @@map("answers")
+  @@schema("exams")
+}
+model ExamOutbox {
+  id String @id @db.Uuid
+  type String @db.VarChar(40)
+  aggregateId String @db.Uuid
+  payload Json
+  createdAt DateTime @db.Timestamptz(3)
+  availableAt DateTime @db.Timestamptz(3)
+  attempts Int @default(0)
+  processedAt DateTime? @db.Timestamptz(3)
+  lastError String? @db.VarChar(200)
+  @@index([processedAt, availableAt])
+  @@map("outbox")
+  @@schema("exams")
 }
 
 // Local projection of the Academic Registry roster (CAR-09 source of truth stays external).
