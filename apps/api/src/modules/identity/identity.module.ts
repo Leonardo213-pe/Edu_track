@@ -1,4 +1,6 @@
 import { Module, DynamicModule } from '@nestjs/common';
+import { APP_FILTER } from '@nestjs/core';
+import { IdentityErrorFilter } from './infrastructure/http/identity-error.filter';
 import { randomUUID } from 'node:crypto';
 import { IdentityService } from './application/identity-service';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma-user-repository';
@@ -11,6 +13,7 @@ import { RecoveryDispatcher } from './infrastructure/notifications/recovery-disp
 import { SmtpResetMailer, type MailConfig } from './infrastructure/notifications/smtp-reset-mailer';
 import { IDENTITY_DIRECTORY } from './public';
 
+export type { MailConfig };
 export const IDENTITY_READINESS = Symbol('IDENTITY_READINESS');
 @Module({})
 export class IdentityModule {
@@ -25,9 +28,11 @@ export class IdentityModule {
       { provide: IDENTITY_READINESS, inject: [PrismaUserRepository],
         useFactory: (users: PrismaUserRepository) => ({ check: () => users.ping() }) },
       { provide: IDENTITY_DIRECTORY, useExisting: IdentityService },
-      { provide: RecoveryDispatcher, inject: [PrismaUserRepository], useFactory: (users: PrismaUserRepository) =>
-        new RecoveryDispatcher(() => users.dispatchRecovery(new SmtpResetMailer(config.mail))) },
-      AuthGuard,
+      { provide: RecoveryDispatcher, inject: [PrismaUserRepository], useFactory: (users: PrismaUserRepository) => {
+        const mailer = new SmtpResetMailer(config.mail); // one pooled transport for the life of the process
+        return new RecoveryDispatcher(() => users.dispatchRecovery(mailer));
+      } },
+      AuthGuard, { provide: APP_FILTER, useClass: IdentityErrorFilter },
     ], exports: [IDENTITY_READINESS, IDENTITY_DIRECTORY] };
   }
 }

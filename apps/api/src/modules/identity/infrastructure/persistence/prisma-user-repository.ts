@@ -14,6 +14,8 @@ class PrismaIdentityData implements IdentityData {
   }
   async findByEmail(email: string) { const row = await this.db.user.findUnique({ where: { email } }); return row ? this.map(row) : null; }
   async findById(id: string) { const row = await this.db.user.findUnique({ where: { id } }); return row ? this.map(row) : null; }
+  async findManyByIds(ids: string[]) { return (await this.db.user.findMany({ where: { id: { in: ids } } })).map(row => this.map(row)); }
+  async findManyByEmails(emails: string[]) { return (await this.db.user.findMany({ where: { email: { in: emails } } })).map(row => this.map(row)); }
   async create(user: User): Promise<void> {
     try { await this.db.user.create({ data: { ...user } }); }
     catch (error) { this.translate(error); }

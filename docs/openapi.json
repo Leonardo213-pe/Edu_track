@@ -142,6 +142,12 @@
           "revision": {
             "type": "integer",
             "minimum": 0
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440,
+            "description": "Duración planificada (Composite); por defecto 0"
           }
         },
         "required": [
@@ -382,6 +388,11 @@
             "items": {
               "$ref": "#/components/schemas/Material"
             }
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1440
           }
         },
         "required": [
@@ -389,7 +400,8 @@
           "title",
           "description",
           "position",
-          "materials"
+          "materials",
+          "durationMinutes"
         ],
         "additionalProperties": false
       },
@@ -554,6 +566,15 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          "durationMinutes": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Suma de duraciones de sesiones (Composite)"
+          },
+          "removable": {
+            "type": "boolean",
+            "description": "Solo personal: borrador nunca publicado cuya estructura puede eliminarse"
           }
         },
         "required": [
@@ -567,7 +588,8 @@
           "status",
           "revision",
           "units",
-          "reviews"
+          "reviews",
+          "durationMinutes"
         ]
       },
       "Error": {
@@ -591,6 +613,160 @@
                 }
               }
             ]
+          },
+          "unknown": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Solo UNKNOWN_STUDENTS: correos que no son estudiantes activos"
+          }
+        }
+      },
+      "HistoryEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "revision",
+          "actorId",
+          "actorName",
+          "action",
+          "detail",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer"
+          },
+          "actorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actorName": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "COURSE_CREATED",
+              "METADATA_EDITED",
+              "SYLLABUS_EDITED",
+              "TEACHER_ASSIGNED",
+              "UNIT_ADDED",
+              "UNIT_EDITED",
+              "UNIT_REMOVED",
+              "SESSION_ADDED",
+              "SESSION_EDITED",
+              "SESSION_REMOVED",
+              "MATERIAL_ADDED",
+              "MATERIAL_VERSION_ADDED",
+              "MATERIAL_REMOVED",
+              "STRUCTURE_REORDERED",
+              "STATUS_CHANGED"
+            ]
+          },
+          "detail": {
+            "type": "object",
+            "description": "Valores antes/después o identificadores del elemento afectado"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "OfficialRoster": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "emails"
+        ],
+        "properties": {
+          "emails": {
+            "type": "array",
+            "maxItems": 1000,
+            "items": {
+              "type": "string",
+              "maxLength": 254
+            },
+            "description": "Lista oficial completa de correos de estudiantes inscritos; reemplaza la anterior"
+          }
+        }
+      },
+      "Roster": {
+        "type": "object",
+        "required": [
+          "courseId",
+          "students",
+          "runs"
+        ],
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "added": {
+            "type": "integer"
+          },
+          "removed": {
+            "type": "integer"
+          },
+          "unchanged": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "students": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "displayName": {
+                  "type": "string"
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "added": {
+                  "type": "integer"
+                },
+                "removed": {
+                  "type": "integer"
+                },
+                "total": {
+                  "type": "integer"
+                },
+                "occurredAt": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
           }
         }
       }
@@ -1473,6 +1649,105 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "Cursos"
+        ],
+        "summary": "Eliminar unidad de un borrador nunca publicado",
+        "operationId": "delete_unitId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "unitId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "description": "Solo docente responsable/ADMIN, en BORRADOR nunca publicado; elimina también los archivos almacenados de sus versiones.",
+        "responses": {
+          "200": {
+            "description": "Operación completada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Course"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revisión obsoleta o estado no permitido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/courses/{id}/units/{unitId}/sessions": {
@@ -1706,6 +1981,105 @@
           },
           "429": {
             "description": "Límite de peticiones",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cursos"
+        ],
+        "summary": "Eliminar sesión de un borrador nunca publicado",
+        "operationId": "delete_sessionId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "description": "Solo docente responsable/ADMIN, en BORRADOR nunca publicado; elimina también los archivos almacenados de sus versiones.",
+        "responses": {
+          "200": {
+            "description": "Operación completada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Course"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revisión obsoleta o estado no permitido",
             "content": {
               "application/json": {
                 "schema": {
@@ -2372,6 +2746,299 @@
           },
           "401": {
             "description": "Sesión inválida"
+          }
+        }
+      }
+    },
+    "/courses/{id}/materials/{materialId}": {
+      "delete": {
+        "tags": [
+          "Cursos"
+        ],
+        "summary": "Eliminar material de un borrador nunca publicado",
+        "operationId": "delete_materialId",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "materialId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "description": "Solo docente responsable/ADMIN, en BORRADOR nunca publicado; elimina también los archivos almacenados de sus versiones.",
+        "responses": {
+          "200": {
+            "description": "Operación completada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Course"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Revisión obsoleta o estado no permitido",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/courses/{id}/history": {
+      "get": {
+        "tags": [
+          "Cursos"
+        ],
+        "summary": "Historial de cambios relevantes (solo inserción)",
+        "operationId": "get_course_history",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "ADMIN, Diseñador Instruccional o docente responsable.",
+        "responses": {
+          "200": {
+            "description": "Operación completada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryEntry"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No encontrado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/enrollments/courses/{courseId}": {
+      "get": {
+        "tags": [
+          "Matrículas"
+        ],
+        "summary": "Inscritos activos y últimas conciliaciones",
+        "operationId": "get_roster",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "courseId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Solo ADMIN activo.",
+        "responses": {
+          "200": {
+            "description": "Operación completada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roster"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/enrollments/courses/{courseId}/roster": {
+      "post": {
+        "tags": [
+          "Matrículas"
+        ],
+        "summary": "Conciliar la lista oficial de inscritos (altas y bajas)",
+        "operationId": "post_roster",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "courseId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "description": "Solo ADMIN. Consume la lista oficial del Registro Académico; atómico e idempotente. Rechaza todo si algún correo no es estudiante activo (UNKNOWN_STUDENTS).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OfficialRoster"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Operación completada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Roster"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Datos inválidos o UNKNOWN_STUDENTS",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sesión inválida",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sin permiso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayUnique, IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayUnique, IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min } from 'class-validator';
 export class CreateCourseDto {
   @IsString() @Length(1, 40) code!: string;
   @IsString() @Length(1, 160) name!: string;
@@ -13,7 +13,10 @@ export class EditCourseDto extends CreateCourseDto {
   @IsInt() @Min(0) revision!: number;
 }
 export class UnitDto extends RevisionDto { @IsString() @Length(1, 160) title!: string; }
-export class SessionDto extends UnitDto { @IsString() @MaxLength(5000) description!: string; }
+export class SessionDto extends UnitDto {
+  @IsString() @MaxLength(5000) description!: string;
+  @IsOptional() @IsInt() @Min(0) @Max(1440) durationMinutes?: number;
+}
 export class OrderDto extends RevisionDto {
   @IsIn(['units', 'sessions', 'materials']) type!: 'units' | 'sessions' | 'materials';
   @IsUUID() parentId!: string;

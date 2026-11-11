@@ -1,6 +1,6 @@
 # EduTrack LMS
 
-Etapa 3: **cursos y contenidos académicos**, integrada con autenticación/usuarios/roles de fase 2. Arquitectura hexagonal y monolito modular: un backend NestJS, React y PostgreSQL; Prisma solo en adaptadores. Archivos reales, versiones, revisión instruccional y completitud. El correo usa SMTP real; no hay contenidos simulados sustituyendo funcionalidades.
+Fase 3: **cursos, contenidos académicos e inscritos**, integrada con autenticación/usuarios/roles de fase 2. Arquitectura hexagonal y monolito modular: un backend NestJS, React y PostgreSQL; Prisma solo en adaptadores. Archivos reales, versiones, revisión instruccional y completitud. El correo usa SMTP real; no hay contenidos simulados sustituyendo funcionalidades.
 
 ## Requisitos y decisiones
 
@@ -69,7 +69,7 @@ npm run dev:api
 npm run dev:web
 ```
 
-Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScript compilado; tras editar TypeScript ejecutar `npm run build -w @edutrack/api` o `npx tsc -p apps/api/tsconfig.build.json --watch` en otra terminal. No ejecutar la API local y la API Compose en el mismo puerto simultáneamente. `WEB_ORIGIN` permite un solo origen exacto; configurar el origen real si cambia el puerto.
+Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScript compilado; tras editar TypeScript ejecutar `npm run build -w @edutrack/api` o `npx tsc -p apps/api/tsconfig.build.json --watch` en otra terminal. No ejecutar la API local y la API Compose en el mismo puerto simultáneamente. Con el proxy de Vite, definir `TRUST_PROXY=loopback` en `.env` para que el límite de peticiones identifique al cliente. `WEB_ORIGIN` permite un solo origen exacto; configurar el origen real si cambia el puerto.
 
 ## Configuración
 
@@ -81,6 +81,8 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | `POSTGRES_PORT` | Puerto local DB (5432); si cambia, ajustar también `DATABASE_URL` |
 | `PORT`, `WEB_PORT` | API (3000) y frontend Compose (8080) |
 | `WEB_ORIGIN` | Origen frontend local (5173); Compose lo adapta a `WEB_PORT` |
+| `TRUST_PROXY` | Proxies confiables de Express para `X-Forwarded-For` (`loopback`, `uniquelocal`, CIDR o número de saltos; nunca `true`). Compose usa `uniquelocal`: Nginx sobrescribe la cabecera con la IP real y el límite se aplica por cliente |
+| `COURSE_STORAGE_ROOT` | Raíz de archivos de cursos (Compose: volumen `/app/storage/courses`) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` | SMTP y remitente: localhost:1025 por defecto, mailpit:1025 en Compose |
 | `SMTP_SECURE`, `SMTP_REQUIRE_TLS` | TLS implícito / STARTTLS; obligatorio para host remoto |
 | `SMTP_USER`, `SMTP_PASSWORD` | Autenticación opcional; configurar juntos solo en entorno |
@@ -104,6 +106,8 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | GET | `/api/identity/security-events` | ADMIN; registro paginado de seguridad |
 | GET | `/api/health/live` | Liveness del proceso |
 | GET | `/api/health/ready` | Conectividad con BD, 503 si falla |
+| * | `/api/courses/...` | Cursos, contenidos, historial y avance: ver [CURSOS.md](docs/CURSOS.md) |
+| GET/POST | `/api/enrollments/courses/:id[/roster]` | ADMIN; inscritos y conciliación de la lista oficial ([ADR-007](docs/ADR/007-proyeccion-matriculas-cierre-fase3.md)) |
 
 DTO estrictos; 400 inválido, 401 credenciales/token/sesión, 403 permiso, 409 duplicado/versión/último ADMIN, 429 límite. Perfiles sin credenciales. JWT identifica usuario y sesión; rol/estado se obtienen de BD. Token en memoria del navegador; recargar requiere nuevo acceso. **Logout revoca la sesión en servidor**. Cambios de acceso o contraseña revocan las sesiones afectadas. Se protege al último ADMIN activo incluso con cambios simultáneos. El limitador HTTP sigue en memoria por instancia; almacenamiento compartido y proxy confiable pendientes antes de escalar. [API completa](docs/IDENTIDAD_API.md) y [ADR-005](docs/ADR/005-identidad-completa.md).
 
@@ -152,8 +156,8 @@ Requiere `npm run build`. Cubre administración, roles, perfil responsivo, logou
 
 Implementados CAR-13/CU-13 para esta fase: alta/listado/edición administrativa, cuatro roles, activación/desactivación, perfil editable, acceso/salida revocable, cambio/recuperación de contraseña, eventos de seguridad y panel por rol. Registro administrativo, sin alta pública abierta. Cada cuenta tiene un rol. CLI solo para el primer ADMIN.
 
-Cursos/Contenidos: CAR-01/02/03 implementados en un contexto académico cohesivo (ADR-006), con State/Composite, sílabo, unidades/sesiones, orden, archivos/versiones, historial, revisión/aprobación y progreso básico. No se ha avanzado a Evaluaciones. Ver [guía de Cursos](docs/CURSOS.md), [OpenAPI](docs/openapi.json), [diagramas](docs/diagrams/CURSOS.md), [plan](docs/PLAN_DESARROLLO.md) y [verificación](docs/VERIFICACION.md).
+Cursos/Contenidos: CAR-01/02/03 implementados en un contexto académico cohesivo (ADR-006/007), con State (transiciones, editabilidad y visibilidad), Composite (avance y duración), sílabo, unidades/sesiones con duración, orden, eliminación en borradores nunca publicados, archivos/versiones, historial de cambios de solo inserción, revisión/aprobación y progreso por estudiante. No se ha avanzado a Evaluaciones. Ver [guía de Cursos](docs/CURSOS.md), [OpenAPI](docs/openapi.json), [diagramas](docs/diagrams/CURSOS.md), [plan](docs/PLAN_DESARROLLO.md) y [verificación](docs/VERIFICACION.md).
 
-Docentes gestionan solo cursos propios; diseñador aprueba/rechaza; ADMIN administra; estudiantes solo publicado+matriculado. La sincronización institucional aún no existe: por defecto se deniega acceso estudiantil y los ensayos usan fixtures expresamente habilitados, documentados en CURSOS.md. Archivos en volumen `edutrack_course_files`, máximo 25 MiB; PDF/DOCX/PPTX/TXT/MP4/WebM. No borrar volúmenes al actualizar. Para editar publicado, volver explícitamente a borrador: deja de ser visible hasta nueva aprobación.
+Docentes gestionan solo cursos propios; diseñador aprueba/rechaza; ADMIN administra; estudiantes solo publicado+matriculado. La inscripción proviene de la **lista oficial** del Registro Académico, guardada como proyección persistida (`enrollments`). Hasta que exista el adaptador CAR-09, el ADMIN la sincroniza por curso en «Inscritos»; sin inscripción activa el estudiante no ve el curso. Archivos en volumen `edutrack_course_files`, máximo 25 MiB; PDF/DOCX/PPTX/TXT/MP4/WebM. No borrar volúmenes al actualizar. Para editar publicado, volver explícitamente a borrador: deja de ser visible hasta nueva aprobación.
 
-Pendientes: S3/antivirus/conciliación y retención de archivos, matrícula real, conexión/riesgo, evaluaciones y resto del plan. TLS producción, MFA/SSO, refresh y límite distribuido siguen como mejoras operativas. PR de `feat/courses-content` con base `feat/identity-complete`, para revisar solo la etapa 3 sin fusionar automáticamente ninguna rama.
+Pendientes: S3/antivirus/conciliación y retención de archivos, adaptador SOAP/REST de matrículas (CAR-09), conexión/riesgo, evaluaciones y resto del plan. TLS producción, MFA/SSO, refresh y límite distribuido siguen como mejoras operativas. Ramas: `main` contiene solo la fase 1; fase 2 en `feat/identity-complete`, fase 3 en `feat/courses-content` y su cierre posterior a la auditoría en `fix/fase3-cierre`. Ninguna se fusiona automáticamente; la fase 4 debe partir de la rama de cierre o de `main` una vez integradas.

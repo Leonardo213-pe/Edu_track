@@ -28,11 +28,10 @@ services:
       SMTP_PORT: 1025
       SMTP_FROM: EduTrack <noreply@edutrack.test>
       COURSE_STORAGE_ROOT: /app/storage/courses
-      ALLOW_TEST_ENROLLMENTS: ${ALLOW_TEST_ENROLLMENTS:-false}
-      ENROLLMENT_FIXTURES_FILE: ${ENROLLMENT_FIXTURES_FILE:-}
+      # Only Nginx (private Compose network) may set X-Forwarded-For; rate limits then apply per real client.
+      TRUST_PROXY: uniquelocal
     volumes:
       - course_files:/app/storage
-      - ./tmp/enrollments:/app/fixtures:ro
     ports: ["127.0.0.1:${PORT:-3000}:3000"]
     depends_on:
       db: { condition: service_healthy }

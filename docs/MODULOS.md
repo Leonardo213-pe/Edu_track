@@ -5,7 +5,7 @@
 | Módulo | Datos y responsabilidades propios | Contrato / eventos previstos | Estado |
 | --- | --- | --- | --- |
 | identity | Usuarios, credenciales, rol, sesiones, recuperación y eventos de seguridad | `IDENTITY_DIRECTORY`, `IdentityDirectory`, `Principal`, `UserProfile`, `Permission` | Fase 2 implementada: administración, acceso/salida revocable, perfil, contraseñas, estado y roles |
-| courses | Curso/sílabo, unidades/sesiones, materiales/versiones, revisión y completitud básica | CourseCatalog, puertos de identidad/matrícula/almacenamiento | CAR-01/02/03 implementados, State/Composite; ADR-006 |
+| courses | Curso/sílabo, unidades/sesiones con duración, materiales/versiones, revisión, historial de cambios y completitud | CourseCatalog, puertos de identidad/matrícula/almacenamiento | CAR-01/02/03 implementados, State/Composite; ADR-006 |
 | materials | Espacio para eventual extracción de capacidad hoy en courses | Sin servicio ni tabla duplicados | Capacidad en courses; no módulo ejecutable separado |
 | course-review | Espacio para eventual extracción de revisión hoy en courses | Sin fachada ficticia | Capacidad en courses; decisión/estado atómicos |
 | assessments | Banco de preguntas, evaluaciones y snapshots publicados | PublishedAssessment; respuesta al estudiante sin soluciones | Planificado |
@@ -14,7 +14,7 @@
 | grading | Estrategias, rúbricas, notas y promedios LMS | GradeSummary, GradeChanged | Planificado |
 | collaboration | Foros, hilos, suscripciones, bandeja de notificaciones | ForumMessagePosted, NotificationRequested | Planificado |
 | analytics | Proyecciones de progreso, conexión y riesgo; completitud fuente en courses | AcademicRisk, ProgressSummary | Planificado |
-| enrollments | Proyección de inscritos, checkpoints e historial de sync | EnrollmentAccess.isEnrolled | Contrato/denegación por defecto/fixtures explícitos; sincronización real pendiente |
+| enrollments | Proyección persistida de la lista oficial de inscritos por curso y bitácora de conciliaciones | ENROLLMENT_ACCESS: `EnrollmentAccess.isEnrolled/coursesOf`; HTTP ADMIN de conciliación | Proyección implementada (ADR-007); adaptador del Registro Académico CAR-09 pendiente |
 | plagiarism | Solicitudes y reportes del proveedor | PlagiarismReportAvailable | Planificado |
 | audit | Registros de solo inserción, cadena y verificación | AuditAppendPort, AuditQuery | Planificado |
 | administration | Política operativa, monitoreo y vistas de salud | OperationalStatus | Planificado; salud básica en raíz técnica |

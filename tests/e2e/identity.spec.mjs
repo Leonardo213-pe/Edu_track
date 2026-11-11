@@ -31,12 +31,15 @@ test.afterAll(async () => {
     const cleanup = `const fs=require('node:fs');const keys=JSON.parse(fs.readFileSync(0,'utf8'));for(const key of keys){if(!/^[a-f0-9-]{36}$/.test(key))throw Error('Invalid fixture key');fs.rmSync('/app/storage/courses/'+key,{force:true});}`;
     const cleaned = spawnSync('docker', ['compose', 'exec', '-T', 'api', 'node', '-e', cleanup], { input: JSON.stringify(files.rows.map(row => row.storageKey)), encoding: 'utf8' });
     if (cleaned.status !== 0) throw new Error('Unable to remove own course fixture files');
+    // Projection rows of the QA course are removed; its append-only enrollment run log is kept by design.
+    await pool.query('DELETE FROM enrollments.enrollments WHERE "courseId" IN (SELECT id FROM courses.courses WHERE "teacherId"=$1)', [teacher.id]);
     await pool.query('DELETE FROM courses.courses WHERE "teacherId"=$1', [teacher.id]);
   }
   await pool.query('DELETE FROM identity.users WHERE id=ANY($1::uuid[]) OR email=$2', [ids, studentEmail]);
   await pool.end(); await users.onModuleDestroy();
 });
 test('real browser: identity, recovery and optional academic course workflow', async ({ page, request, browser }) => {
+  test.setTimeout(process.env.COURSES_E2E === 'true' ? 240000 : 60000);
   const browserErrors = []; page.on('pageerror', error => browserErrors.push(error.message));
   await page.goto('/'); await page.screenshot({ path: 'tmp/screens/phase2-login.png', fullPage: true });
   await page.getByLabel('Correo institucional').fill(adminEmail); await page.getByLabel('Contraseña', { exact: true }).fill(password);
@@ -77,8 +80,6 @@ test('real browser: identity, recovery and optional academic course workflow', a
   await page.getByLabel('Contraseña', { exact: true }).fill(`${password}new`); await page.getByRole('button', { name: /Ingresar a mi espacio/ }).click();
   await expect(page.getByRole('heading', { name: /Hola, Estudiante/ })).toBeVisible(); expect(browserErrors).toEqual([]);
   if (teacher) {
-    process.env.COURSES_E2E_STUDENT = studentEmail;
-    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-    try { await verifyCourses({ studentPage: page, browser, teacher, designer, password, pool }); } finally { await pool.end(); }
+    await verifyCourses({ studentPage: page, browser, teacher, designer, admin: { email: adminEmail }, studentEmail, password });
   }
 });

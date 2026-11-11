@@ -1,6 +1,19 @@
-import type { MailConfig } from './modules/identity/infrastructure/notifications/smtp-reset-mailer';
-export interface AppConfig { databaseUrl: string; jwtSecret: string; port: number; webOrigin: string; mail: MailConfig;
-  academic?: { storageRoot?: string; enrollmentFixtureFile?: string; allowTestEnrollments?: boolean } }
+import type { MailConfig } from './modules/identity/identity.module';
+export interface AppConfig {
+  databaseUrl: string; jwtSecret: string; port: number; webOrigin: string; mail: MailConfig;
+  /** Express "trust proxy" value; undefined keeps Express' default (no proxy trusted). */
+  trustProxy?: boolean | number | string;
+  academic?: { storageRoot?: string };
+}
+export function parseTrustProxy(value: string | undefined): AppConfig['trustProxy'] {
+  if (value === undefined || value.trim() === '') return undefined;
+  const raw = value.trim();
+  if (raw === 'false') return false;
+  if (/^\d{1,2}$/.test(raw)) return Number(raw);
+  // Named ranges (loopback, linklocal, uniquelocal) or explicit IP/CIDR lists; "true" (trust everyone) is rejected.
+  if (raw === 'true' || !/^[\w.:/, -]+$/.test(raw)) throw new Error('Invalid TRUST_PROXY');
+  return raw;
+}
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const databaseUrl = env.DATABASE_URL;
   const jwtSecret = env.JWT_SECRET;
@@ -19,7 +32,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (!['localhost', '127.0.0.1', 'mailpit'].includes(host) && !secure && !requireTLS) throw new Error('Remote SMTP requires TLS');
   const from = env.SMTP_FROM ?? 'EduTrack <noreply@edutrack.test>';
   if (/[\r\n]/.test(from)) throw new Error('Invalid SMTP_FROM');
-  return { databaseUrl, jwtSecret, port, webOrigin, academic: { storageRoot: env.COURSE_STORAGE_ROOT,
-    enrollmentFixtureFile: env.ENROLLMENT_FIXTURES_FILE, allowTestEnrollments: env.ALLOW_TEST_ENROLLMENTS === 'true' }, mail: { host, port: smtpPort, from, secure, requireTLS,
-    user: env.SMTP_USER, password: env.SMTP_PASSWORD, webOrigin } };
+  if (env.ALLOW_TEST_ENROLLMENTS === 'true' || env.ENROLLMENT_FIXTURES_FILE?.trim())
+    throw new Error('Enrollment JSON fixtures were removed; synchronize the official roster through /api/enrollments');
+  return { databaseUrl, jwtSecret, port, webOrigin, trustProxy: parseTrustProxy(env.TRUST_PROXY),
+    academic: { storageRoot: env.COURSE_STORAGE_ROOT },
+    mail: { host, port: smtpPort, from, secure, requireTLS, user: env.SMTP_USER, password: env.SMTP_PASSWORD, webOrigin } };
 }

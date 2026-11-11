@@ -43,7 +43,16 @@ try {
   await call('identity/users', studentSession.accessToken, undefined, 403);
   const logout = await fetch(`${base}/api/identity/logout`, { method: 'POST', headers: { Authorization: `Bearer ${studentSession.accessToken}` } });
   assert.equal(logout.status, 204); await call('identity/me', studentSession.accessToken, undefined, 401);
-  console.log('Compose smoke passed: SPA, readiness, login, profile, user creation/list, role denial and server logout.');
+  const enrollmentDenied = await fetch(`${base}/api/enrollments/courses/${randomUUID()}/roster`, { method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(await call('identity/login', undefined, { email: newEmail, password })).accessToken}` }, body: JSON.stringify({ emails: [] }) });
+  assert.equal(enrollmentDenied.status, 403, 'students cannot replace an official roster');
+  // Last check (it consumes this client's login quota for one minute): Nginx overwrites X-Forwarded-For, so spoofing does not bypass the limit.
+  const attempt = forwarded => fetch(`${base}/api/identity/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': forwarded },
+    body: JSON.stringify({ email: `nobody-${randomUUID()}@example.test`, password: 'wrong-password' }) });
+  let limited = false;
+  for (let i = 0; i < 8 && !limited; i++) limited = (await attempt(`203.0.113.${i}`)).status === 429;
+  assert.ok(limited, 'login attempts are limited per real client even with spoofed X-Forwarded-For');
+  console.log('Compose smoke passed: SPA, readiness, login, profile, user creation/list, role denial, server logout, roster denial and proxy-aware rate limit.');
 } finally {
   await pool.query('DELETE FROM identity.users WHERE id = ANY($1::uuid[])', [ids]);
   await pool.end();

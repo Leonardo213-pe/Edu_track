@@ -48,11 +48,19 @@ JWT HS256 con issuer/audience/algoritmo fijos, expiración 900 s, `sub` y `jti` 
 
 Recuperación con secreto opaco 256 bits, SHA-256, vencimiento 15 min, un uso y revocación atómica. No devolver token en API/logs. Outbox de recuperación con payload AES-GCM cifrado y consumidor SMTP dentro del mismo backend. Mailpit captura correos reales en desarrollo, no entrega a Internet. Eventos de identidad append-only en su propio esquema; no equivalen a auditoría académica CAR-12. Ver [ADR-005](ADR/005-identidad-completa.md) para garantías y límites.
 
-## Cursos implementado (etapa 3)
+## Cursos implementado (fase 3)
 
 `courses` posee curso/sílabo/unidades/sesiones/materiales/versiones/revisiones y completitud básica. Dominio puro con State y Composite; aplicación con cinco puertos, PostgreSQL/local y contratos públicos de identidad/matrícula. Revisión optimista y lock por curso hacen atómicos estado/estructura/decisión. PUBLICADO es ineditable: volver a BORRADOR retira publicación hasta nueva aprobación. ARCHIVADO terminal. Estudiantes solo publicado+matrícula, incluidas descargas.
 
-Archivos reales en volumen privado, claves UUID, firma/MIME/tamaño, SHA-256, versiones sin UPDATE y descargas autenticadas. Enlaces HTTP(S). S3 futuro por puerto; no integración ficticia. Progreso por versión vigente completada, no heredado al versionar. Reporte de actividad no equivale a padrón total ni riesgo académico. Matrícula por defecto denegada; fixtures explícitos solo para pruebas. Ver [ADR-006](ADR/006-cursos-contenidos.md), [Cursos](CURSOS.md), [OpenAPI](openapi.json), [diagramas](diagrams/CURSOS.md).
+Archivos reales en volumen privado, claves UUID, firma/MIME/tamaño, SHA-256, versiones sin UPDATE y descargas autenticadas. Enlaces HTTP(S). S3 futuro por puerto; no integración ficticia. Progreso por versión vigente completada, no heredado al versionar. Reporte de actividad no equivale a padrón total ni riesgo académico. Matrícula consultada al contrato `EnrollmentAccess` (proyección persistida, sin fixtures). Agregado encapsulado (`DeepReadonly`, `snapshot`), State con editabilidad/visibilidad, Composite con duración, historial `courses.changes` de solo inserción y eliminación solo en borradores nunca publicados (ADR-007). Ver [ADR-006](ADR/006-cursos-contenidos.md), [Cursos](CURSOS.md), [OpenAPI](openapi.json), [diagramas](diagrams/CURSOS.md).
+
+## Matrículas implementado (proyección)
+
+`enrollments` posee la proyección local de la lista oficial de inscritos (`enrollments.enrollments`) y la bitácora de conciliaciones `enrollments.runs` (solo inserción). Depende solo de `identity/public`; los cursos son referencias opacas, sin ciclo con `courses`. La conciliación es atómica e idempotente con lock por curso. La lista la entrega un ADMIN hasta el adaptador CAR-09. Ver [ADR-007](ADR/007-proyeccion-matriculas-cierre-fase3.md).
+
+## Seguridad de borde
+
+`TRUST_PROXY` define los proxies confiables de Express. Nginx sobrescribe `X-Forwarded-For` con la IP real, de modo que el limitador funciona por cliente y no admite suplantación. La prueba AST también verifica la raíz de composición, las dependencias reales frente a `modules.json` y que cada adaptador Prisma use solo las tablas y el SQL de su propio esquema.
 
 ## Comunicación futura y consistencia
 

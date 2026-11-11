@@ -1,6 +1,6 @@
 import { IdentityError } from '../domain/errors';
 import { User, normalizeEmail, validatePassword } from '../domain/user';
-import { permissionsFor, type Principal, type Role, type UserProfile, type IdentityDirectory, type Permission } from '../public';
+import { permissionsFor, type DirectoryEntry, type Principal, type Role, type UserProfile, type IdentityDirectory, type Permission } from '../public';
 import type { AccessTokens, IdentityData, PasswordHasher, Runtime, SecurityAction, SecurityTokens, UserRepository } from './ports';
 
 export interface CreateUser { email: string; displayName: string; password: string; role: Role }
@@ -64,6 +64,19 @@ export class IdentityService implements IdentityDirectory {
   }
   async hasPermission(id: string, permission: Permission): Promise<boolean> {
     const principal = await this.findPrincipal(id); return !!principal && permissionsFor(principal.role).includes(permission);
+  }
+  private entry(user: User): DirectoryEntry {
+    return { id: user.id, email: user.email, displayName: user.displayName, role: user.role, active: user.active };
+  }
+  private bounded(values: readonly string[]): string[] {
+    const unique = [...new Set(values)]; if (unique.length > 1000) throw new IdentityError('INVALID_INPUT'); return unique;
+  }
+  async findUsers(ids: readonly string[]): Promise<DirectoryEntry[]> {
+    const unique = this.bounded(ids); return unique.length ? (await this.users.findManyByIds(unique)).map(user => this.entry(user)) : [];
+  }
+  async findUsersByEmail(emails: readonly string[]): Promise<DirectoryEntry[]> {
+    const normalized = this.bounded(emails).flatMap(email => { try { return [normalizeEmail(email)]; } catch { return []; } });
+    return normalized.length ? (await this.users.findManyByEmails(normalized)).map(user => this.entry(user)) : [];
   }
   async listInstructors(): Promise<{ id: string; displayName: string }[]> {
     const result: { id: string; displayName: string }[] = [];

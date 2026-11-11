@@ -1,6 +1,6 @@
 # ADR-006: contexto académico cohesivo para CAR-01/02/03
 
-Estado: adoptado en la etapa 3. Contexto: el repositorio tenía espacios planificados separados para cursos, materiales y revisión, sin implementaciones. La solicitud actual agrupa Gestión de Cursos y Contenidos y exige que estado, contenido, versiones y decisiones sean coherentes.
+Estado: adoptado en la fase 3; ampliado por [ADR-007](007-proyeccion-matriculas-cierre-fase3.md) (proyección de matrículas que sustituye los fixtures, historial, eliminación en borrador, duración y proxy confiable). Contexto: el repositorio tenía espacios planificados separados para cursos, materiales y revisión, sin implementaciones. La solicitud actual agrupa Gestión de Cursos y Contenidos y exige que estado, contenido, versiones y decisiones sean coherentes.
 
 ## Límites y patrones
 

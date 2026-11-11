@@ -20,7 +20,10 @@ beforeEach(() => {
   }
   // Explicit unit-test double. Production and integration tests use PostgreSQL.
   repo = {
-    findById: async id => users.get(id) ?? null, findByEmail: async email => [...users.values()].find(user => user.email === email) ?? null,
+    findById: async id => users.get(id) ?? null,
+    findManyByIds: async ids => [...users.values()].filter(user => ids.includes(user.id)),
+    findManyByEmails: async emails => [...users.values()].filter(user => emails.includes(user.email)),
+    findByEmail: async email => [...users.values()].find(user => user.email === email) ?? null,
     create: async user => { if ([...users.values()].some(existing => existing.email === user.email)) throw new IdentityError('EMAIL_EXISTS'); users.set(user.id, user); },
     update: async (user, version) => { if (users.get(user.id)?.version !== version) throw new IdentityError('CONFLICT'); users.set(user.id, user); },
     list: async (limit, offset) => [...users.values()].slice(offset, offset + limit),
@@ -81,6 +84,16 @@ describe('identity application with explicit ports', () => {
     expect(await service.hasPermission(student.id, 'users:write')).toBe(false);
     expect(await service.findPrincipal('missing')).toBeNull();
     users.set('student', users.get('student')!.revise({ active: false })); expect(await service.findPrincipal('student')).toBeNull();
+  });
+  it('exposes a minimal directory by IDs and normalized emails without credentials', async () => {
+    expect(await service.findUsers([])).toEqual([]); expect(await service.findUsersByEmail(['not-an-email'])).toEqual([]);
+    const [entry] = await service.findUsers(['student', 'student', 'missing']);
+    expect(entry).toEqual({ id: 'student', email: 'student@example.test', displayName: 'student', role: 'STUDENT', active: true });
+    expect(entry).not.toHaveProperty('passwordHash');
+    expect((await service.findUsersByEmail([' STUDENT@example.test ', 'admin@example.test'])).map(user => user.id).sort()).toEqual(['admin', 'student']);
+    await expect(service.findUsers(Array.from({ length: 1001 }, (_, index) => `id-${index}`))).rejects.toThrow('INVALID_INPUT');
+    users.set('teacher', new User('teacher', 'teacher@example.test', 'Docente', 'hash', 'TEACHER', now));
+    expect(await service.listInstructors()).toEqual([{ id: 'teacher', displayName: 'Docente' }]);
   });
   it('bounds user and security-event pagination', async () => {
     expect(await service.listUsers(admin)).toHaveLength(2); expect(await service.securityEvents(admin)).toEqual([]);

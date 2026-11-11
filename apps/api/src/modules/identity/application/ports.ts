@@ -9,6 +9,8 @@ export interface ResetMessage { email: string; token: string; expiresAt: string 
 export interface IdentityData {
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
+  findManyByIds(ids: string[]): Promise<User[]>;
+  findManyByEmails(emails: string[]): Promise<User[]>;
   create(user: User): Promise<void>;
   update(user: User, expectedVersion: number): Promise<void>;
   list(limit: number, offset: number): Promise<User[]>;

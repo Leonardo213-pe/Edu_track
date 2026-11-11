@@ -1,5 +1,53 @@
 # Verificación de EduTrack LMS
 
+## Cierre de fase 3 tras auditoría, 12 de noviembre de 2026
+
+Rama `fix/fase3-cierre`, creada desde `feat/courses-content` (`7956bc6`), sin commits ni merge. La auditoría previa encontró:
+- Limitador compartido detrás de Nginx.
+- Estudiantes sin acceso real a los cursos (solo había fixtures).
+- Historial incompleto.
+- State y Composite parciales.
+- Sin eliminación de elementos en borrador.
+- Listados que recorrían todos los cursos y usuarios.
+- Archivos que se recibían antes de autorizar.
+- Prueba AST sin cobertura de la raíz ni de las tablas Prisma.
+
+Las correcciones se describen en [ADR-007](ADR/007-proyeccion-matriculas-cierre-fase3.md).
+
+| Verificación ejecutada | Resultado observado |
+| --- | --- |
+| `npm run check` | Código 0: generación de 3 clientes Prisma, TypeScript, build de API y SPA, pruebas |
+| Backend unitario (Vitest 5.1) | **65/65** (7 archivos), incluidos State, Composite y duración, historial, eliminación, encapsulación, matrículas, directorio y `TRUST_PROXY` |
+| Cobertura V8 del núcleo (dominio y aplicación) | Líneas **100% (356/356)**, statements 99,67% (609/611), ramas 96,77% (360/372), funciones 100% (207/207) |
+| Frontend (Testing Library, fetch como doble explícito) | **12/12**, incluidas sincronización de inscritos, eliminación con revisión y confirmación, y ocultamiento tras una publicación |
+| Arquitectura AST | **7/7**: además de las reglas previas, raíz de composición, imports reales frente a `modules.json` y tablas y SQL Prisma por esquema |
+| Migraciones en PostgreSQL 17 desechable (`edutrack_test:55432`, tmpfs) | Las 4 aplicadas, incluida `202611120001_phase3_closure` |
+| `prisma migrate diff` de la BD migrada frente a `schema.prisma` | Las tablas y columnas nuevas no generan deriva. Aparece deriva preexistente de fase 2 (nombres de índices y `ON UPDATE`) y la FK intencional `completions_material_fkey`; documentado en ADR-007, sin cambios |
+| `npm run test:integration` (Nest compilado, Prisma, PostgreSQL, SMTP y disco reales) | **25/25**: 13 de identidad + 10 de cursos y matrículas + 2 de proxy |
+| `docker compose up --build -d --wait` | db, api, web y mailpit saludables; la API aplicó `202611120001_phase3_closure` sobre la base de desarrollo sin borrar datos ni volúmenes |
+| `COURSES_E2E=true npm run test:e2e` (Chromium real contra Compose) | **1/1** (1,3 min): identidad y recuperación; curso, sílabo, unidad eliminada, sesión de 90 min, subida TXT e historial; aprobación; estudiante sin acceso antes de la inscripción; sincronización por el ADMIN; visor, completitud y móvil sin desbordes |
+| `npm run test:smoke` (Nginx real) | Aprobado: SPA, readiness, alta y listado, denegaciones, logout, conciliación denegada a estudiante y límite efectivo aunque se falsifique `X-Forwarded-For` |
+| `npm audit` | 0 vulnerabilidades |
+
+Las integraciones de cursos verifican:
+- Altas, bajas, reactivación e idempotencia de la lista oficial; rechazo total con `UNKNOWN_STUDENTS`; permisos exclusivos de ADMIN.
+- Bitácora `enrollments.runs` que rechaza UPDATE y DELETE.
+- Eliminación de material, unidad y sesión con borrado real del archivo; 409 si la revisión es obsoleta o el curso ya fue publicado.
+- Historial con antes/después y nombres; acceso al historial solo para personal autorizado.
+- Triggers contra UPDATE de `courses.changes` y `courses.reviews`.
+- Duración validada.
+- Subida rechazada a un estudiante antes de leer el multipart.
+
+Las de proxy verifican límites separados por cliente con proxy confiable, y que sin proxy confiable se ignora un `X-Forwarded-For` falsificado.
+
+Capturas revisadas en `tmp/screens/`: `phase3-teacher`, `phase3-enrollments` y `phase3-student`.
+
+Límites y efectos de esta verificación:
+- Las pruebas de identidad enviaron correos de QA al Mailpit de desarrollo, que solo los captura.
+- Las ejecuciones E2E y smoke dejan eventos de seguridad y bitácoras de matrícula de solo inserción en la base de desarrollo. Las cuentas, cursos, archivos e inscripciones de QA se eliminaron.
+- No se ejecutaron CI remoto, carga, failover, TLS de producción ni el adaptador real del Registro Académico.
+- No se implementaron evaluaciones.
+
 ## Etapa 3: Cursos y contenidos, 11 de noviembre de 2026
 
 Base publicada `feat/identity-complete`, commit `7392460`. Rama `feat/courses-content`; PR apilado contra esa base, sin fusionar main. Antes de modificar se revisaron AGENTS, arquitectura, plan, identidad y páginas 4-12 del informe original. Baseline: compilación/suites existentes correctas y 13 integraciones de identidad aprobadas.
