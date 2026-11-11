@@ -25,6 +25,53 @@ model User {
   passwordHash String
   role Role
   createdAt DateTime @default(now()) @db.Timestamptz(3)
+  active Boolean @default(true)
+  version Int @default(0)
+  sessions Session[]
+  recoveries PasswordRecovery[]
+  messages RecoveryMessage[]
   @@map("users")
+  @@schema("identity")
+}
+
+model Session {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz(3)
+  revokedAt DateTime? @db.Timestamptz(3)
+  @@index([userId])
+  @@map("sessions")
+  @@schema("identity")
+}
+model PasswordRecovery {
+  tokenHash String @id @db.VarChar(64)
+  userId String @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz(3)
+  @@index([userId])
+  @@map("password_recoveries")
+  @@schema("identity")
+}
+model RecoveryMessage {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payload String
+  attempts Int @default(0)
+  availableAt DateTime @default(now()) @db.Timestamptz(3)
+  deliveredAt DateTime? @db.Timestamptz(3)
+  @@index([deliveredAt, availableAt])
+  @@map("recovery_messages")
+  @@schema("identity")
+}
+model SecurityEvent {
+  id String @id @db.Uuid
+  action String @db.VarChar(40)
+  actorId String? @db.Uuid
+  userId String? @db.Uuid
+  occurredAt DateTime @db.Timestamptz(3)
+  @@index([occurredAt])
+  @@map("security_events")
   @@schema("identity")
 }

@@ -6,7 +6,7 @@ const profile = { id: 'one', displayName: 'Ana Torres', email: 'ana@example.test
 afterEach(() => vi.unstubAllGlobals());
 test('logs in, shows the real profile and clears the session on logout', async () => {
   const fetcher = vi.fn().mockResolvedValueOnce({ ok: true, json: async () => ({ accessToken: 'token', expiresIn: 900, user: profile }) })
-    .mockResolvedValueOnce({ ok: true, json: async () => profile });
+    .mockResolvedValueOnce({ ok: true, json: async () => profile }).mockResolvedValueOnce({ ok: true, status: 204 });
   vi.stubGlobal('fetch', fetcher);
   render(<App />); const user = userEvent.setup();
   await user.type(screen.getByLabelText('Correo institucional'), 'ana@example.test');
@@ -18,10 +18,21 @@ test('logs in, shows the real profile and clears the session on logout', async (
   expect(fetcher.mock.calls[1]?.[1].headers.Authorization).toBe('Bearer token');
   expect(localStorage.length).toBe(0);
   await user.click(screen.getByRole('button', { name: /Cerrar sesión/ }));
-  expect((screen.getByLabelText('Contraseña') as HTMLInputElement).value).toBe('');
+  expect(((await screen.findByLabelText('Contraseña')) as HTMLInputElement).value).toBe('');
+  expect(fetcher.mock.calls[2]?.[0]).toBe('/api/identity/logout');
+});
+test('opens a recovery link in the existing tab after a recovery request', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ message: 'Si la cuenta está activa, recibirás instrucciones.' }) }));
+  render(<App />); const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Olvidé mi contraseña' }));
+  await user.type(screen.getByLabelText('Correo institucional'), 'ana@example.test'); await user.click(screen.getByRole('button', { name: /Solicitar enlace/ }));
+  await screen.findByRole('status');
+  window.location.hash = `reset=${'a'.repeat(64)}`;
+  expect(await screen.findByLabelText('Nueva contraseña')).not.toBeNull();
+  await waitFor(() => expect(window.location.hash).toBe(''));
 });
 test('reports rejected credentials without entering the workspace', async () => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }));
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) }));
   render(<App />); const user = userEvent.setup();
   await user.type(screen.getByLabelText('Correo institucional'), 'ana@example.test');
   await user.type(screen.getByLabelText('Contraseña'), 'wrong');

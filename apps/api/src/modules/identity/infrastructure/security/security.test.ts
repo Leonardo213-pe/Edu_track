@@ -14,9 +14,10 @@ describe('real cryptographic adapters', () => {
   }, 20000);
   it('validates JWT signatures, expiration, algorithm, issuer, audience and subject', async () => {
     const secret = randomBytes(48).toString('hex'); const tokens = new JwtAccessTokens(secret); const id = randomUUID();
-    const token = await tokens.issue(id); expect(await tokens.verify(token)).toBe(id);
+    const sessionId = randomUUID();
+    const token = await tokens.issue(id, sessionId); expect(await tokens.verify(token)).toEqual({ userId: id, sessionId });
     const signer = new JwtService({ secret });
-    const options = { subject: id, issuer: 'edutrack-api', audience: 'edutrack-web' };
+    const options = { subject: id, jwtid: sessionId, issuer: 'edutrack-api', audience: 'edutrack-web' };
     for (const bad of [
       `${token.slice(0, -4)}xxxx`, signer.sign({}, { ...options, expiresIn: -1 }),
       signer.sign({}, { ...options, audience: 'other' }), signer.sign({}, { ...options, issuer: 'other' }),

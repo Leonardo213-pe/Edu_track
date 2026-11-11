@@ -1,5 +1,5 @@
 [
-  { "id": "identity", "status": "initial-slice", "owns": "users, roles, credentials", "dependencies": [] },
+  { "id": "identity", "status": "implemented", "owns": "users, roles, credentials, sessions, password recovery and security events", "dependencies": [] },
   { "id": "courses", "status": "planned", "owns": "syllabus, units, sessions, course lifecycle", "dependencies": ["identity", "enrollments"] },
   { "id": "materials", "status": "planned", "owns": "materials, immutable content versions, storage references", "dependencies": ["courses"] },
   { "id": "course-review", "status": "planned", "owns": "reviews, decisions, course-version approval evidence", "dependencies": ["courses", "materials"] },

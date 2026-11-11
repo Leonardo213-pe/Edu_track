@@ -16,7 +16,7 @@ Fuente: informe pp. 6-10, 12 y 35. «Pendiente» incluye directorios diseñados;
 | CAR-10: plagio externo | CU-04,15 | plagiarism, submissions | Contrato sandbox/fallos del tercero | Pendiente |
 | CAR-11: concurrencia/durabilidad | CU-03 | exams | k6 + caída/reconexión; EAC-01/02/03 | Diseño/plan de carga; sin módulo |
 | CAR-12: auditoría inmutable | CU-08,14 | audit, grading, assessments | UPDATE/DELETE rechazados, cadena, atomicidad | Diseño; sin tablas/endpoints |
-| CAR-13: usuarios/roles | CU-13 | identity | Unitarias, HTTP/Prisma/PostgreSQL, SPA | Parcial: acceso, alta, listado, perfil y cuatro roles; falta edición/baja/cambio de rol/contraseña |
+| CAR-13: usuarios/roles | CU-13 | identity | Unitarias, HTTP/Prisma/PostgreSQL/SMTP, frontend y navegador | Fase 2 implementada: alta administrativa, edición/listado, cuatro roles, activación/baja lógica, perfil, contraseñas, sesiones revocables y registro de seguridad |
 | CAR-14: monitoreo | CU-11 | administration, analytics | Métricas, panel y alarmas | Solo health técnico; requisito pendiente |
 
 | Escenario | Objetivo del informe | Estado y evidencia |
@@ -25,7 +25,7 @@ Fuente: informe pp. 6-10, 12 y 35. «Pendiente» incluye directorios diseñados;
 | EAC-02 | Recuperación ≤5 min, disponibilidad 99,5% | Diseño futuro, Compose una réplica no lo valida |
 | EAC-03 | Reconexión, antigüedad ≤15 s, sin duplicados | Diseño futuro, falta exámenes |
 | EAC-04 | Auditoría con actor/antes/después y rechazo de alteración | Pendiente |
-| EAC-05 | Borrador/sección denegados y TLS ≥1.2 | RBAC inicial probado; ACL académica/TLS producción pendientes |
+| EAC-05 | Borrador/sección denegados y TLS ≥1.2 | Identidad/RBAC/sesiones revocables probados; contratos públicos exportados. ACL por curso/sección depende de módulos académicos pendientes; TLS de producción requiere terminación HTTPS, no lo certifica Compose HTTP |
 | EAC-06 | Reintentos del legado y alerta sin interrumpir LMS | Pendiente; resolver ambigüedad 3 intentos/reintentos |
 | EAC-07 | Cambiar proveedor/algoritmo sin modificar núcleo | Puertos y arquitectura probados en identidad; proveedores/Strategy pendientes |
 | EAC-08 | Pruebas sin BD y cobertura núcleo ≥80% | Umbral configurado y medido en identidad; ver VERIFICACION |

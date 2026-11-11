@@ -1,4 +1,36 @@
-# Verificación de la primera entrega
+# Verificación de EduTrack LMS
+
+## Fase 2: identidad completa, 11 de noviembre de 2026
+
+Rama de revisión `feat/identity-complete`, derivada de `main`. Cambios sin merge, commit ni push automático. El informe original y los trece módulos académicos/operativos pendientes no se modificaron. Migración aditiva `202611110001_identity_complete`: cuentas existentes activas/versión 0, nuevas sesiones/recuperaciones/outbox y eventos propios de identidad. JWT previos sin sesión `jti` requieren volver a iniciar sesión.
+
+| Verificación realmente ejecutada | Resultado |
+| --- | --- |
+| `npm ci --no-fund` y posteriores builds Docker con `npm ci` | Instalación reproducible del lockfile, sin errores |
+| `npm run check` | Generación Prisma, tipos, build backend/frontend y suites completas: código 0 |
+| Backend unitario/criptografía | **34/34** pruebas aprobadas |
+| Frontend con Testing Library | **7/7**, incluidos logout remoto, recuperación, perfil, edición de rol/estado y regresión de enlace en pestaña existente; fetch identificado como doble |
+| Arquitectura AST | **4/4**, núcleo sin frameworks/ORM, límites de módulos y grafo sin ciclos |
+| Cobertura de dominio/aplicación implementados | Líneas **100% (108/108)**, funciones **100% (37/37)**, ramas **98,29% (115/117)**, statements **98,76% (160/162)** |
+| Migraciones sobre PostgreSQL 17 desechable | Las dos migraciones aplicadas en `edutrack_test`, puerto 55432; sin fallback a desarrollo |
+| Integración HTTP/Nest compilado/Prisma/PostgreSQL/SMTP | **13/13**; envío real aceptado por Mailpit y contenido consultado por su API |
+| `npm run test:e2e` con Chromium real | **1/1**, recorrido conectado a Compose y PostgreSQL: cuenta, rol, perfil móvil sin desborde, salida, recuperación por correo y nuevo acceso |
+| `npm run test:smoke` | Recorrido HTTP real de SPA/Nginx/API/PostgreSQL y logout revocable; cuentas propias limpiadas |
+| `docker compose up --build -d --wait` | API, web, db y mailpit saludables; migración aplicada sin borrar volumen existente |
+| Auditoría npm tras Nodemailer 10.5.0 y Playwright | **0 vulnerabilidades** reportadas en la instalación final |
+| `git diff --check` | Sin errores de espacios; `.env`, `.tools`, resultados y screenshots ignorados |
+
+Son **59 pruebas automatizadas** (34+7+4+13+1), más el smoke HTTP. La cobertura no incluye módulos inexistentes ni certifica rendimiento de exámenes. CI contiene servicios PostgreSQL/Mailpit reales; su ejecución remota de esta rama no se ha solicitado/observado. Chromium se ejecutó localmente; no se certificó matriz completa Safari/Firefox/Edge.
+
+Casos de integración: credenciales correctas/incorrectas/desconocidas/inactivas, JWT manipulado/vencido por sesión, endpoints sin autenticación, permisos de los cuatro roles, edición persistida y versiones obsoletas, inyección de rol por perfil, correos duplicados concurrentes, último ADMIN protegido bajo dos degradaciones simultáneas, logout/cambio de rol/baja/reactivación, cambio de contraseña con verificación anterior, recuperación de un uso/caducidad/consumo concurrente, revocación de sesiones, fallo SMTP retenido para reintento y eventos de seguridad que rechazan UPDATE/DELETE.
+
+El navegador detectó una incidencia real: cambiar solo el fragmento de un enlace de recuperación en la pestaña abierta conservaba el estado anterior del formulario. Se corrigió escuchando `hashchange` y reiniciando la vista por token; se añadió regresión y el recorrido completo se repitió con éxito. Se revisaron capturas de login, administración y perfil móvil (1440 px/390 px), sin recortes ni desbordes observados. Chromium se descargó a `.tools/playwright`, fuera de Git.
+
+Mailpit es un servidor SMTP real de desarrollo que captura mensajes y **no entrega a Internet**. No se probó un proveedor productivo ni se incorporaron credenciales de terceros. SMTP remoto exige TLS. EAC-05 cubierto en identidad/RBAC; cursos/secciones y terminación HTTPS/TLS de producción siguen dependiendo de etapas posteriores. Registro de seguridad de identidad no se presenta como auditoría académica CAR-12.
+
+Pendientes operativos: proveedor SMTP productivo, TLS/ingress, rate limiter compartido para múltiples réplicas, política de retención de sesiones/eventos/outbox, y opcionalmente MFA/SSO/refresh. No se ejecutaron carga, failover, integración de matrículas/plagio ni despliegue a nube. Las cuentas temporales de QA se eliminan; no se deja una contraseña predeterminada. Web en `localhost:8080`, bandeja SMTP en `localhost:8025`; primer ADMIN por CLI según README.
+
+## Histórico: primera entrega (antes de fase 2)
 
 Sesión local del 10 al 11 de noviembre de 2026, America/Lima. Entorno Windows/PowerShell, Node 24.22.2 portátil con SHA-256 cotejado contra el manifiesto oficial de nodejs.org, npm 11.19.1, Docker Engine 29.8.2 y Compose 5.6.0. No se modificó la instalación global de Node ni el PostgreSQL existente en 5432.
 

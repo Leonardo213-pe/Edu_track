@@ -1,6 +1,6 @@
 # ADR-003: primer incremento y seguridad de identidad
 
-Estado: aceptado para el incremento inicial; políticas de institución pendientes. Contexto: cuatro roles CAR-13 y autorización como base de todos los casos de uso.
+Estado: histórico del incremento inicial; ampliado y sustituido en lo relativo a sesiones/administración por [ADR-005](005-identidad-completa.md). Contexto: cuatro roles CAR-13 y autorización como base de todos los casos de uso.
 
 Decisión: implementar alta/listado por ADMIN, acceso, perfil, CLI privilegiada y asignación de un rol por usuario. Sin registro público. Email normalizado/único en BD. Scrypt nativo Node (N=2^17, r=8, p=1), sal aleatoria 16 bytes, derivación 64 bytes, comparación constante. Evita dependencia de binarios de hashing de terceros manteniendo el parámetro recomendado por [OWASP](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). Argon2id es alternativa futura preferida si se adopta un runtime/binario gestionado; los hashes están versionados por algoritmo/parámetros.
 

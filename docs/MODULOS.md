@@ -4,7 +4,7 @@
 
 | Módulo | Datos y responsabilidades propios | Contrato / eventos previstos | Estado |
 | --- | --- | --- | --- |
-| identity | Usuarios, credenciales y rol | `IdentityDirectory`, `Principal`, `UserProfile` | Alta, acceso y consulta operativos; administración completa parcial |
+| identity | Usuarios, credenciales, rol, sesiones, recuperación y eventos de seguridad | `IDENTITY_DIRECTORY`, `IdentityDirectory`, `Principal`, `UserProfile`, `Permission` | Fase 2 implementada: administración, acceso/salida revocable, perfil, contraseñas, estado y roles |
 | courses | Sílabo, módulos, sesiones, ciclo del curso | CourseCatalog, CoursePublished | Planificado |
 | materials | Material, versiones y referencias a objetos | MaterialVersions, MaterialVersionPublished | Planificado |
 | course-review | Solicitud y decisión de revisión de una versión | ReviewDecision; invoca transición pública de courses | Planificado |

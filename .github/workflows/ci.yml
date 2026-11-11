@@ -6,6 +6,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     services:
+      mailpit:
+        image: axllent/mailpit:v1.27
+        ports: ["1025:1025", "8025:8025"]
       postgres:
         image: postgres:17-alpine
         env:

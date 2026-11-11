@@ -40,11 +40,13 @@ El esquema Prisma central es un artefacto de migración, no una capa de reposito
 
 ## Identidad implementada
 
-`User` mantiene email normalizado, nombre y rol válido; serializa un perfil seguro. `IdentityService` implementa acceso, autenticación del token contra usuario persistido, creación y listado exclusivo ADMIN. Sus puertos: `UserRepository`, `PasswordHasher`, `AccessTokens`, `Runtime`. Nest construye los adaptadores sin decoradores en el núcleo.
+`User` mantiene email normalizado, nombre, rol, estado y versión; produce perfiles seguros con permisos públicos. `IdentityService` implementa alta/edición/listado por ADMIN, perfil propio, acceso/salida, contraseñas y registro de seguridad. Puertos: `UserRepository`/`IdentityData` transaccional, `PasswordHasher`, `AccessTokens`, `SecurityTokens`, `ResetMailer`, `Runtime`. Nest compone los adaptadores sin decoradores en el núcleo. El token exportado `IDENTITY_DIRECTORY` ofrece el contrato público puro `IdentityDirectory` a los futuros módulos.
 
-El repositorio traduce filas Prisma a `User` y convierte P2002 a conflicto de email. La unicidad se garantiza en PostgreSQL, incluido el caso de alta concurrente; una inserción atómica no requiere transacción explícita adicional. No se ha implementado un Unit of Work vacío. Las operaciones académicas futuras sí requerirán transacciones para nota/auditoría y finalización/outbox.
+Prisma traduce filas a `User` y P2002 a conflicto de email. Mutaciones de identidad con advisory lock transaccional propio del módulo protegen al último ADMIN y releen actor/sesión al escribir. Edición optimista por versión. Hashing fuera del lock. Cuenta/sesión/recuperación/evento atómicos, sin exponer tipos Prisma al núcleo. No extender este lock a exámenes. Atomicidad académica nota/auditoría sigue pendiente.
 
-JWT HS256, issuer/audience/algoritmo fijo y expiración 900 s; sin rol confiado en el token. Scrypt con sal aleatoria por usuario, N=131072, r=8, p=1 y comparación constante. El caso de email desconocido verifica un hash ficticio generado al arrancar para reducir diferencias de tiempo. Contraseñas 12-128 caracteres. Tokens en memoria del frontend, perfiles sin credenciales. Rate limiting por IP en memoria. No hay refresh tokens ni revocación anticipada; ver límites en README.
+JWT HS256 con issuer/audience/algoritmo fijos, expiración 900 s, `sub` y `jti` enlazados a sesión PostgreSQL revocable. Comprobar sesión/propietario/estado cada petición; rol siempre de BD. Scrypt con sal aleatoria, N=131072, r=8, p=1 y comparación constante; hash ficticio para email desconocido. Contraseñas 12-128 caracteres. Token en memoria SPA, sin refresh. Logout revoca sesión; cambios de acceso/contraseña revocan todas las afectadas. Rate limiting HTTP sigue en memoria por instancia.
+
+Recuperación con secreto opaco 256 bits, SHA-256, vencimiento 15 min, un uso y revocación atómica. No devolver token en API/logs. Outbox de recuperación con payload AES-GCM cifrado y consumidor SMTP dentro del mismo backend. Mailpit captura correos reales en desarrollo, no entrega a Internet. Eventos de identidad append-only en su propio esquema; no equivalen a auditoría académica CAR-12. Ver [ADR-005](ADR/005-identidad-completa.md) para garantías y límites.
 
 ## Comunicación futura y consistencia
 

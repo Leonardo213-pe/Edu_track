@@ -7,10 +7,11 @@ export class JwtAccessTokens implements AccessTokens {
       issuer: 'edutrack-api', audience: 'edutrack-web' }, verifyOptions: {
       algorithms: ['HS256'], issuer: 'edutrack-api', audience: 'edutrack-web' } });
   }
-  issue(userId: string): Promise<string> { return this.jwt.signAsync({}, { subject: userId }); }
-  async verify(token: string): Promise<string> {
-    const payload = await this.jwt.verifyAsync<{ sub?: string }>(token);
-    if (!payload.sub || !/^[0-9a-f-]{36}$/i.test(payload.sub)) throw new Error('Invalid token subject');
-    return payload.sub;
+  issue(userId: string, sessionId: string): Promise<string> { return this.jwt.signAsync({}, { subject: userId, jwtid: sessionId }); }
+  async verify(token: string): Promise<{ userId: string; sessionId: string }> {
+    const payload = await this.jwt.verifyAsync<{ sub?: string; jti?: string }>(token);
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!payload.sub || !uuid.test(payload.sub) || !payload.jti || !uuid.test(payload.jti)) throw new Error('Invalid token claims');
+    return { userId: payload.sub, sessionId: payload.jti };
   }
 }

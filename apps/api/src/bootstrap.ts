@@ -28,7 +28,7 @@ export async function createApplication(config: AppConfig) {
   const app = await NestFactory.create(AppModule.register(config), { logger: ['error', 'warn', 'log'] });
   app.setGlobalPrefix('api');
   app.use(helmet());
-  app.enableCors({ origin: config.webOrigin, methods: ['GET', 'POST'], allowedHeaders: ['Content-Type', 'Authorization'] });
+  app.enableCors({ origin: config.webOrigin, methods: ['GET', 'POST', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   app.useGlobalFilters(new IdentityErrorFilter());
   app.enableShutdownHooks();
