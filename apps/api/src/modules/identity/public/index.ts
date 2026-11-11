@@ -12,7 +12,17 @@ export interface UserProfile extends Principal {
   readonly email: string; readonly displayName: string; readonly createdAt: string;
   readonly active: boolean; readonly version: number; readonly permissions: readonly Permission[];
 }
+/** Minimal directory data other modules may show (never credentials). */
+export interface DirectoryEntry {
+  readonly id: string; readonly email: string; readonly displayName: string; readonly role: Role; readonly active: boolean;
+}
 export interface IdentityDirectory {
+  listInstructors(): Promise<{ id: string; displayName: string }[]>;
+  /** Up to 1000 IDs; unknown IDs are omitted. */
+  findUsers(ids: readonly string[]): Promise<DirectoryEntry[]>;
+  /** Up to 1000 emails, normalized; unknown or malformed emails are omitted. */
+  findUsersByEmail(emails: readonly string[]): Promise<DirectoryEntry[]>;
+  authenticate(token: string): Promise<UserProfile>;
   findPrincipal(id: string): Promise<Principal | null>;
   hasPermission(id: string, permission: Permission): Promise<boolean>;
 }

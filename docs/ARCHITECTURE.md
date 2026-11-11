@@ -2,7 +2,7 @@
 
 ## Estructura ejecutable
 
-Un repositorio npm workspaces, **un backend desplegable**, una SPA estática y PostgreSQL. Cada módulo de negocio contiene su propio hexágono. Identidad es el primer incremento; los demás son espacios explícitamente planificados. La unidad de despliegue no cambia al añadir módulos.
+Un repositorio npm workspaces, **un backend desplegable**, una SPA estática y PostgreSQL. Cada contexto de negocio contiene su hexágono. Identidad y Cursos están implementados; los demás mantienen alcance planificado. ADR-006 consolida materiales/revisión en el agregado académico, sin módulos ficticios ni transacciones cruzadas. La unidad de despliegue no cambia.
 
 ```text
 apps/api/src/
@@ -36,7 +36,7 @@ infra/                                # imágenes y proxy
 
 Las consultas hacia otro módulo se implementan mediante puertos propios y un adaptador que consume el contrato público. El dominio nunca referencia entidades ajenas. Los módulos no consultan tablas ajenas; los IDs son referencias opacas. No se crean aliases de importación que eludan el control de arquitectura. El control AST examina imports, reexports, imports de tipos, require e import dinámico estático; prohíbe importaciones dinámicas no verificables. Su alcance es dependencias de código: no inspecciona semánticamente cada consulta SQL; revisar también propiedad de datos.
 
-El esquema Prisma central es un artefacto de migración, no una capa de repositorios global. Actualmente solo contiene esquema `identity`. Al crecer, separar modelos por propiedad; cada adaptador usa exclusivamente tablas de su módulo. La base de datos es compartida físicamente, con esquemas lógicos y cuentas de permisos mínimos como objetivo de despliegue. Compose usa una cuenta de desarrollo y no satisface ese aislamiento operativo final.
+El esquema Prisma central es un artefacto de migración, no una capa de repositorios global. Contiene `identity` y `courses`, con clientes generados dentro de cada adaptador. Cada repositorio usa sus propias tablas; referencias a usuarios/matrículas por ID y contrato, sin consultas/FKs a tablas ajenas. Cuentas de privilegios mínimos son objetivo de producción; Compose usa una cuenta de desarrollo.
 
 ## Identidad implementada
 
@@ -47,6 +47,20 @@ Prisma traduce filas a `User` y P2002 a conflicto de email. Mutaciones de identi
 JWT HS256 con issuer/audience/algoritmo fijos, expiración 900 s, `sub` y `jti` enlazados a sesión PostgreSQL revocable. Comprobar sesión/propietario/estado cada petición; rol siempre de BD. Scrypt con sal aleatoria, N=131072, r=8, p=1 y comparación constante; hash ficticio para email desconocido. Contraseñas 12-128 caracteres. Token en memoria SPA, sin refresh. Logout revoca sesión; cambios de acceso/contraseña revocan todas las afectadas. Rate limiting HTTP sigue en memoria por instancia.
 
 Recuperación con secreto opaco 256 bits, SHA-256, vencimiento 15 min, un uso y revocación atómica. No devolver token en API/logs. Outbox de recuperación con payload AES-GCM cifrado y consumidor SMTP dentro del mismo backend. Mailpit captura correos reales en desarrollo, no entrega a Internet. Eventos de identidad append-only en su propio esquema; no equivalen a auditoría académica CAR-12. Ver [ADR-005](ADR/005-identidad-completa.md) para garantías y límites.
+
+## Cursos implementado (fase 3)
+
+`courses` posee curso/sílabo/unidades/sesiones/materiales/versiones/revisiones y completitud básica. Dominio puro con State y Composite; aplicación con cinco puertos, PostgreSQL/local y contratos públicos de identidad/matrícula. Revisión optimista y lock por curso hacen atómicos estado/estructura/decisión. PUBLICADO es ineditable: volver a BORRADOR retira publicación hasta nueva aprobación. ARCHIVADO terminal. Estudiantes solo publicado+matrícula, incluidas descargas.
+
+Archivos reales en volumen privado, claves UUID, firma/MIME/tamaño, SHA-256, versiones sin UPDATE y descargas autenticadas. Enlaces HTTP(S). S3 futuro por puerto; no integración ficticia. Progreso por versión vigente completada, no heredado al versionar. Reporte de actividad no equivale a padrón total ni riesgo académico. Matrícula consultada al contrato `EnrollmentAccess` (proyección persistida, sin fixtures). Agregado encapsulado (`DeepReadonly`, `snapshot`), State con editabilidad/visibilidad, Composite con duración, historial `courses.changes` de solo inserción y eliminación solo en borradores nunca publicados (ADR-007). Ver [ADR-006](ADR/006-cursos-contenidos.md), [Cursos](CURSOS.md), [OpenAPI](openapi.json), [diagramas](diagrams/CURSOS.md).
+
+## Matrículas implementado (proyección)
+
+`enrollments` posee la proyección local de la lista oficial de inscritos (`enrollments.enrollments`) y la bitácora de conciliaciones `enrollments.runs` (solo inserción). Depende solo de `identity/public`; los cursos son referencias opacas, sin ciclo con `courses`. La conciliación es atómica e idempotente con lock por curso. La lista la entrega un ADMIN hasta el adaptador CAR-09. Ver [ADR-007](ADR/007-proyeccion-matriculas-cierre-fase3.md).
+
+## Seguridad de borde
+
+`TRUST_PROXY` define los proxies confiables de Express. Nginx sobrescribe `X-Forwarded-For` con la IP real, de modo que el limitador funciona por cliente y no admite suplantación. La prueba AST también verifica la raíz de composición, las dependencias reales frente a `modules.json` y que cada adaptador Prisma use solo las tablas y el SQL de su propio esquema.
 
 ## Comunicación futura y consistencia
 

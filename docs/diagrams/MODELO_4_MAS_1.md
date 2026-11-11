@@ -32,7 +32,7 @@ classDiagram
   IdentityService --> AccessTokens
 ```
 
-Modelo académico previsto: estructura de cursos Composite, ciclo State, calificación Strategy, interacción Observer/eventos y traducción externa Adapter. Se aplicarán donde exista comportamiento que lo justifique, sin clases vacías para aparentar patrones.
+Modelo académico: estructura/progreso Composite y ciclo State implementados en Courses, según [clases y componentes](CURSOS.md). Calificación Strategy, interacción Observer/eventos e integraciones externas permanecen pendientes; no hay clases vacías para aparentar patrones.
 
 ## Vista de procesos
 

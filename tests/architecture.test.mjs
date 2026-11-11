@@ -51,6 +51,57 @@ test('checker rejects representative forbidden dependencies', () => {
   ]) assert.ok(violations(path.join(root, file), imports).length, `${file}: checker must reject ${imports}`);
   assert.deepEqual(violations(path.join(root, 'courses/infrastructure/example.ts'), ['../../identity/public']), []);
 });
+const source = path.resolve('apps/api/src');
+function rootViolations(file, imports) {
+  // The composition root may only wire module entry points (*.module) and public contracts, plus its own root files.
+  return imports.filter(specifier => specifier.startsWith('.')).filter(specifier => {
+    const target = path.relative(source, path.resolve(path.dirname(file), specifier)).split(path.sep);
+    if (target.length === 1) return false;
+    return !(target[0] === 'modules' && target.length === 3 && (target[2] === 'public' || target[2].endsWith('.module')));
+  }).map(specifier => `composition root -> ${specifier}`);
+}
+test('the composition root only imports module entry points and public contracts', () => {
+  const rootFiles = readdirSync(source).filter(name => name.endsWith('.ts') && !name.endsWith('.test.ts')).map(name => path.join(source, name));
+  assert.ok(rootFiles.length >= 3);
+  for (const file of rootFiles) assert.deepEqual(rootViolations(file, dependencies(file)), [], file);
+  assert.ok(rootViolations(path.join(source, 'bootstrap.ts'), ['./modules/identity/infrastructure/http/identity-error.filter']).length);
+  assert.deepEqual(rootViolations(path.join(source, 'bootstrap.ts'), ['./modules/identity/identity.module', './modules/enrollments/public', './config']), []);
+});
+function undeclared(file, imports, catalog) {
+  const [moduleName] = path.relative(root, file).split(path.sep);
+  return imports.filter(specifier => specifier.startsWith('.')).map(specifier => path.relative(root, path.resolve(path.dirname(file), specifier)).split(path.sep)[0])
+    .filter(target => catalog.has(target) && target !== moduleName && !catalog.get(moduleName).includes(target)).map(target => `${moduleName} -> ${target} not declared in modules.json`);
+}
+test('real cross-module imports are declared synchronous dependencies in modules.json', () => {
+  const catalog = new Map(JSON.parse(readFileSync('docs/modules.json', 'utf8')).map(module => [module.id, module.dependencies]));
+  for (const file of files) assert.deepEqual(undeclared(file, dependencies(file), catalog), [], file);
+  assert.ok(undeclared(path.join(root, 'enrollments/application/example.ts'), ['../../courses/public'], catalog).length, 'enrollments must not depend on courses');
+});
+const schemaText = readFileSync('apps/api/prisma/schema.prisma', 'utf8');
+const ownership = [...schemaText.matchAll(/model (\w+) \{[\s\S]*?@@schema\("(\w+)"\)/g)].map(([, model, schema]) => ({ delegate: model[0].toLowerCase() + model.slice(1), schema }));
+function persistenceViolations(moduleName, file, text) {
+  const errors = [];
+  for (const { delegate, schema } of ownership) if (schema !== moduleName && new RegExp(`\\.${delegate}\\.(find\\w*|create\\w*|update\\w*|upsert|delete\\w*|count|aggregate|groupBy)\\b`).test(text)) errors.push(`${file}: uses ${delegate} owned by ${schema}`);
+  const sql = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true); const templates = [];
+  (function visit(node) {
+    if (ts.isNoSubstitutionTemplateLiteral(node)) templates.push(node.text);
+    if (ts.isTemplateExpression(node)) templates.push(node.head.text, ...node.templateSpans.map(span => span.literal.text));
+    ts.forEachChild(node, visit);
+  })(sql);
+  for (const schema of new Set(ownership.map(item => item.schema))) if (schema !== moduleName && templates.some(part => new RegExp(`\\b"?${schema}"?\\.`).test(part))) errors.push(`${file}: raw SQL on schema ${schema}`);
+  return errors;
+}
+test('persistence adapters only touch tables of their own module schema', () => {
+  assert.ok(ownership.length >= 12, 'schema models must declare their owning schema');
+  for (const file of files.filter(item => item.includes(`${path.sep}persistence${path.sep}`))) {
+    const [moduleName] = path.relative(root, file).split(path.sep);
+    assert.deepEqual(persistenceViolations(moduleName, file, readFileSync(file, 'utf8')), [], file);
+  }
+  assert.ok(persistenceViolations('identity', 'x.ts', 'await this.db.course.findMany({})').length);
+  assert.ok(persistenceViolations('courses', 'x.ts', 'await tx.$queryRaw`SELECT * FROM identity.users`').length);
+  assert.ok(persistenceViolations('enrollments', 'x.ts', 'await tx.$queryRaw`SELECT 1 FROM "courses".courses`').length);
+  assert.deepEqual(persistenceViolations('identity', 'x.ts', 'await this.db.user.findMany({}); await tx.$queryRaw`SELECT * FROM identity.users`'), []);
+});
 test('every planned business module has its own hexagon', () => {
   const modules = JSON.parse(readFileSync('docs/modules.json', 'utf8'));
   for (const module of modules) for (const layer of ['domain', 'application', 'infrastructure', 'public'])
