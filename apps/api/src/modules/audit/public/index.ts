@@ -5,3 +5,5 @@
  */
 export const AUDIT_ACTOR_SETTING = 'edutrack.actor';
 export type AuditedEntity = 'GRADE' | 'ASSESSMENT';
+/** Actor recorded for changes made by the platform itself (e.g. automatic grading of a finalized attempt). */
+export const SYSTEM_ACTOR_ID = '00000000-0000-4000-8000-000000000000';

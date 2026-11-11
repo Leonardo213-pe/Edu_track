@@ -1,6 +1,6 @@
 import { Assessment, draw, ensureWeights, type AssessmentInput, type SnapshotQuestion } from '../domain/assessment';
 import { AssessmentError, Question, text, type QuestionInput } from '../domain/question';
-import type { AssessmentCatalog, GradableAssessment } from '../public';
+import type { AnswerKeyItem, AssessmentCatalog, DrawnQuestion, ExamDefinition, GradableAssessment } from '../public';
 import type { AssessmentActor, AssessmentCourses, AssessmentDirectory, AssessmentEnrollment, AssessmentRepository, AssessmentRuntime, CourseSummary } from './ports';
 
 /** CU-07 (question bank) and assessment definition/publication for CAR-04. */
@@ -111,5 +111,21 @@ export class AssessmentService implements AssessmentCatalog {
   }
   async findGradable(id: string): Promise<GradableAssessment | null> {
     const assessment = await this.repo.find(id); return assessment?.acceptsGrades() ? this.gradableView(assessment) : null;
+  }
+  async examDefinition(id: string): Promise<ExamDefinition | null> {
+    const assessment = await this.repo.find(id); if (!assessment) return null;
+    const { courseId, title, status, type, dueAt, durationMinutes, questionCount } = assessment.data;
+    return { id, courseId, title, status, type, dueAt, durationMinutes, questionCount };
+  }
+  async drawForAttempt(id: string): Promise<DrawnQuestion[]> {
+    const assessment = await this.load(id);
+    if (assessment.data.type !== 'QUIZ' || assessment.data.status !== 'PUBLISHED') throw new AssessmentError('INVALID_STATE');
+    return draw(await this.repo.snapshot(id), assessment.data.questionCount!, () => this.runtime.random()).map((question, position) => ({
+      questionId: question.questionId, position, type: question.type, statement: question.statement, pointsCents: question.pointsCents,
+      options: question.options.map(option => ({ id: option.id, text: option.text })) }));
+  }
+  async answerKey(id: string): Promise<AnswerKeyItem[]> {
+    return (await this.repo.snapshot(id)).map(question => ({ questionId: question.questionId, pointsCents: question.pointsCents,
+      correctOptionIds: question.options.filter(option => option.correct).map(option => option.id) }));
   }
 }

@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit"]
+  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit", "exams"]
 }
 generator courseClient {
   provider = "prisma-client"
@@ -136,6 +136,56 @@ model AuditEntry {
   @@index([entity, entityId])
   @@map("entries")
   @@schema("audit")
+}
+
+generator examClient {
+  provider = "prisma-client"
+  output = "../src/modules/exams/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+// Phase 5: timed attempts (CU-03), versioned idempotent answers (CAR-11) and the transactional outbox.
+model ExamAttempt {
+  id String @id @db.Uuid
+  assessmentId String @db.Uuid
+  courseId String @db.Uuid
+  studentId String @db.Uuid
+  status String @db.VarChar(12)
+  startedAt DateTime @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  finalizedAt DateTime? @db.Timestamptz(3)
+  finalizedBy String? @db.VarChar(10)
+  questions Json
+  answers ExamAnswer[]
+  @@unique([assessmentId, studentId])
+  @@index([status, expiresAt])
+  @@map("attempts")
+  @@schema("exams")
+}
+model ExamAnswer {
+  attemptId String @db.Uuid
+  attempt ExamAttempt @relation(fields: [attemptId], references: [id])
+  questionId String @db.Uuid
+  optionIds Json
+  version BigInt
+  savedAt DateTime @db.Timestamptz(3)
+  @@id([attemptId, questionId])
+  @@map("answers")
+  @@schema("exams")
+}
+model ExamOutbox {
+  id String @id @db.Uuid
+  type String @db.VarChar(40)
+  aggregateId String @db.Uuid
+  payload Json
+  createdAt DateTime @db.Timestamptz(3)
+  availableAt DateTime @db.Timestamptz(3)
+  attempts Int @default(0)
+  processedAt DateTime? @db.Timestamptz(3)
+  lastError String? @db.VarChar(200)
+  @@index([processedAt, availableAt])
+  @@map("outbox")
+  @@schema("exams")
 }
 
 // Local projection of the Academic Registry roster (CAR-09 source of truth stays external).

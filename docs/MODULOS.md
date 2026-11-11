@@ -9,7 +9,7 @@
 | materials | Espacio para eventual extracción de capacidad hoy en courses | Sin servicio ni tabla duplicados | Capacidad en courses; no módulo ejecutable separado |
 | course-review | Espacio para eventual extracción de revisión hoy en courses | Sin fachada ficticia | Capacidad en courses; decisión/estado atómicos |
 | assessments | Bancos y preguntas, evaluaciones, ciclo de vida y snapshot publicado | ASSESSMENT_CATALOG: `gradable`, `findGradable` (sin respuestas) | Implementado fase 4 (ADR-008) |
-| exams | Intentos, vencimiento, preguntas asignadas, respuestas versionadas | AttemptSummary, AttemptFinalized | Planificado |
+| exams | Intentos, preguntas sorteadas, respuestas versionadas, vencimiento y outbox | `AttemptFinalized.v1` (outbox); consume ASSESSMENT_CATALOG y GRADE_RECORDER | Implementado fase 5 (ADR-009) |
 | submissions | Tareas, entregas y metadatos de archivos | SubmissionReference, SubmissionReceived | Planificado |
 | grading | Notas LMS (Strategy), versiones con motivo, promedios ponderados | `GRADING_SCALE` | Implementado fase 4 |
 | collaboration | Foros, hilos, suscripciones, bandeja de notificaciones | ForumMessagePosted, NotificationRequested | Planificado |

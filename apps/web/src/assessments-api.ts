@@ -33,9 +33,10 @@ const messages: Record<string, string> = {
   WEIGHT_EXCEEDED: 'La suma de pesos del curso superaría el 100 %.', INSUFFICIENT_QUESTIONS: 'El banco no tiene suficientes preguntas activas.',
   COURSE_NOT_PUBLISHED: 'Solo puedes publicar evaluaciones de un curso publicado.', NOT_ENROLLED: 'El estudiante no está inscrito en el curso.',
   NOT_GRADABLE: 'Esta evaluación aún no acepta calificaciones manuales.', REASON_REQUIRED: 'Indica el motivo del cambio de nota.',
+  NOT_AVAILABLE: 'El examen no está disponible (cerrado o fuera de plazo).', ATTEMPT_CLOSED: 'El intento ya terminó: no se aceptan más respuestas.',
 };
 /** Calls /api/{assessments|grading|audit}; error codes are translated, never trusted for authorization. */
-export async function evaluationApi<T>(path: string, token: string, body?: unknown, method?: 'PATCH' | 'DELETE'): Promise<T> {
+export async function evaluationApi<T>(path: string, token: string, body?: unknown, method?: 'PATCH' | 'PUT' | 'DELETE'): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api${path}`, { method: method ?? (body === undefined ? 'GET' : 'POST'),

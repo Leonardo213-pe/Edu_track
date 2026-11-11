@@ -107,6 +107,7 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | GET | `/api/health/live` | Liveness del proceso |
 | GET | `/api/health/ready` | Conectividad con BD, 503 si falla |
 | * | `/api/courses/...` | Cursos, contenidos, historial y avance: ver [CURSOS.md](docs/CURSOS.md) |
+| * | `/api/exams/...` | Rendir cuestionarios, autoguardado y finalización: ver [EXAMENES.md](docs/EXAMENES.md) |
 | * | `/api/assessments/...`, `/api/grading/...`, `/api/audit/...` | Banco, evaluaciones, notas y auditoría: ver [EVALUACIONES.md](docs/EVALUACIONES.md) |
 | GET/POST | `/api/enrollments/courses/:id[/roster]` | ADMIN; inscritos y conciliación de la lista oficial ([ADR-007](docs/ADR/007-proyeccion-matriculas-cierre-fase3.md)) |
 
@@ -163,4 +164,6 @@ Docentes gestionan solo cursos propios; diseñador aprueba/rechaza; ADMIN admini
 
 Evaluaciones (fase 4, [ADR-008](docs/ADR/008-evaluaciones-calificacion-auditoria.md)): banco de preguntas, evaluaciones con snapshot inmutable y sorteo, calificación por rúbrica (Strategy), promedios ponderados 0–20 y auditoría inmutable con hash encadenado para notas y evaluaciones publicadas; consulta y verificación por ADMIN.
 
-Pendientes: exámenes contra reloj y autoguardado (fase 5), S3/antivirus/conciliación y retención de archivos, adaptador SOAP/REST de matrículas (CAR-09), conexión/riesgo y resto del plan. TLS producción, MFA/SSO, refresh y límite distribuido siguen como mejoras operativas. Ramas: `main` contiene solo la fase 1; fase 2 en `feat/identity-complete`, fase 3 en `feat/courses-content` y su cierre posterior a la auditoría en `fix/fase3-cierre`. Ninguna se fusiona automáticamente; la fase 4 debe partir de la rama de cierre o de `main` una vez integradas.
+Exámenes (fase 5, [ADR-009](docs/ADR/009-examenes-concurrentes.md), [EXAMENES.md](docs/EXAMENES.md)): intento contra reloj con vencimiento del servidor, autoguardado idempotente con ACK tras commit, reconexión con cola local, cierre por tiempo y calificación automática auditada vía outbox.
+
+Pendientes: S3/antivirus/conciliación y retención de archivos, adaptador SOAP/REST de matrículas (CAR-09), conexión/riesgo y resto del plan. TLS producción, MFA/SSO, refresh y límite distribuido siguen como mejoras operativas. Ramas: `main` contiene solo la fase 1; fase 2 en `feat/identity-complete`, fase 3 en `feat/courses-content` y su cierre posterior a la auditoría en `fix/fase3-cierre`. Ninguna se fusiona automáticamente; la fase 4 debe partir de la rama de cierre o de `main` una vez integradas.

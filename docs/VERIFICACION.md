@@ -1,5 +1,39 @@
 # Verificación de EduTrack LMS
 
+## Fase 5: exámenes contra reloj, 14 de noviembre de 2026
+
+Rama `feat/fase5-examenes`, creada desde `feat/fase4-evaluaciones` (`8a08e08`). Decisiones en [ADR-009](ADR/009-examenes-concurrentes.md); guía en [EXAMENES.md](EXAMENES.md).
+
+| Verificación ejecutada | Resultado observado |
+| --- | --- |
+| `npm run check` | Código 0 (7 clientes Prisma, tipos, build, pruebas) |
+| Backend unitario | **103/103**: vencimiento del servidor, inicio solo para cuestionario publicado, validación de respuestas por tipo, versiones, idempotencia, cierre perezoso y por barredor, calificación solo de las sorteadas, `recordAutomatic` idempotente y concurrente, sorteo y clave de respuestas |
+| Cobertura V8 del núcleo | Líneas **98,98%**, statements 98,46%, ramas 95,03%, funciones 97,57% |
+| Frontend | **19/19**: reanudar reenviando solo lo local más nuevo, cola sin conexión con reenvío al reconectar, intento cerrado bloqueado con su nota |
+| Arquitectura AST | **7/7** con `exams` |
+| `npm run test:integration` (PostgreSQL 17 desechable) | **35/35** en dos ejecuciones seguidas: 13 identidad + 10 cursos + 2 proxy + 4 fase 4 + 6 fase 5 |
+| `npm run test:load` (200 estudiantes × 10 guardados simultáneos) | 2000/2000 HTTP 200, **0 ACK perdidos**, p95 724 ms, p99 859 ms, 200/200 calificados en 5,3 s (local, no certifica EAC-01) |
+| Compose | La API aplicó `202611140001_exams` sobre desarrollo sin borrar datos |
+| E2E Chromium (`COURSES_E2E`, `ASSESSMENTS_E2E`) | **1/1**: fases 2-4 más cuestionario creado del banco, publicado, rendido por el estudiante (comenzar, responder, «Todas las respuestas guardadas», finalizar), nota automática 20, promedio 16 y lista de intentos del docente |
+
+La integración de la fase 5 verifica:
+- **Inicio:** tres inicios simultáneos crean un solo intento; las preguntas no incluyen `correct`; el vencimiento es exacto a la duración.
+- **Versiones:** v1, v3, v2 atrasada y v3 duplicada; una ráfaga de 20 versiones desordenadas deja guardada la mayor.
+- **Validación:** opción ajena 400; versión 0 400; otro estudiante 403.
+- **Reinicio de la API a mitad del examen:** las respuestas confirmadas se conservan y el vencimiento no cambia.
+- **Finalización:** idempotente, con un solo evento `AttemptFinalized.v1` en el outbox.
+- **Rechazos tras finalizar:** guardado 409; triggers contra respuestas, reapertura y borrado.
+- **Calificación:** automática de 10 (1 de 2 preguntas correcta), auditada como Sistema y con el outbox marcado como procesado.
+- **Vencimiento:** con el reloj de la base, el guardado tardío devuelve 409; el barredor cierra con EXPIRED/TIMEOUT y califica lo guardado.
+- **Concurrencia:** 50 guardados paralelos de dos estudiantes sin errores.
+
+Incidencias:
+- **Error de concurrencia real.** La integración y la ráfaga encontraron que un guardado concurrente devolvía 500: la rama `SELECT` de la misma sentencia no veía la fila confirmada por un reintento paralelo. Se corrigió leyendo el estado en una sentencia nueva y se repitió la integración dos veces.
+- **Error del editor en `bootstrap.ts`.** VS Code no encontraba `tsconfig.json` y aplicaba decoradores estándar de TypeScript 5. Se añadió `apps/api/tsconfig.json`, que hereda la configuración de compilación, y quedó con 0 diagnósticos.
+- **Estilo de las opciones del examen.** Los botones de opción heredaban el ancho de los campos; se corrigió la hoja de estilos y se repitió el E2E.
+- **Datos de QA.** Las ejecuciones E2E y de carga dejaron intentos, notas y auditoría de QA, que son inmutables por diseño.
+- **Pendiente:** carga de 3000 estudiantes y failover multi-réplica en un entorno representativo.
+
 ## Fase 4: evaluaciones, calificación y auditoría, 13 de noviembre de 2026
 
 Rama `feat/fase4-evaluaciones`, creada desde `fix/fase3-cierre` (`0ffdd96`, publicada en GitHub), sin merge. Decisiones en [ADR-008](ADR/008-evaluaciones-calificacion-auditoria.md); guía en [EVALUACIONES.md](EVALUACIONES.md).

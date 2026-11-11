@@ -5,7 +5,7 @@
   {"id": "materials", "status": "reserved-extraction", "owns": "no current data; capability owned by courses per ADR-006", "dependencies": []},
   {"id": "course-review", "status": "reserved-extraction", "owns": "no current data; capability owned by courses per ADR-006", "dependencies": []},
   {"id": "assessments", "status": "implemented", "owns": "question banks, assessment definitions, lifecycle and frozen question snapshots; random draw", "dependencies": ["identity", "courses", "enrollments", "audit"]},
-  {"id": "exams", "status": "planned", "owns": "attempts, assigned question snapshots, versioned answers, deadlines", "dependencies": ["assessments", "enrollments", "grading", "audit"]},
+  {"id": "exams", "status": "implemented", "owns": "attempts with server deadline, drawn questions without answers, versioned idempotent answers, AttemptFinalized outbox, expiry sweeper", "dependencies": ["identity", "courses", "enrollments", "assessments", "grading"]},
   {"id": "submissions", "status": "planned", "owns": "assignments, submissions, file metadata", "dependencies": ["courses", "enrollments"]},
   {"id": "grading", "status": "implemented", "owns": "LMS grades (Strategy: automatic, rubric), versions with reasons, weighted averages", "dependencies": ["identity", "courses", "enrollments", "assessments", "audit"]},
   {"id": "collaboration", "status": "planned", "owns": "forums, threads, subscriptions, notifications", "dependencies": ["courses", "enrollments"]},

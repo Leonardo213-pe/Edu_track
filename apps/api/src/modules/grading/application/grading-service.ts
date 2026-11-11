@@ -1,4 +1,5 @@
 import { Grade, GradingError, PASSING_GRADE, SCALE_MAX_CENTS, strategyFor, weightedAverage, type Average } from '../domain/grading';
+import type { AutomaticGradeInput } from '../public';
 import type { GradableAssessment, GradeRepository, GradingAssessments, GradingCourses, GradingDirectory, GradingEnrollment, GradingRuntime } from './ports';
 
 const points = (cents: number | null) => cents === null ? null : cents / 100;
@@ -61,6 +62,34 @@ export class GradingService {
     const grade = Grade.first({ id: this.runtime.id(), assessmentId, courseId: assessment.courseId, studentId, gradedBy: actorId, gradedAt: now },
       result, strategy.origin, input.reason ?? '');
     await this.grades.save(grade, null, actorId); return gradeView(grade);
+  }
+
+  /**
+   * Automatic grade of a finalized attempt (CU-03 step 5). Idempotent per source: a retried event returns the stored
+   * grade. Recorded with the system actor so the audit entry shows it was not a manual change.
+   */
+  async recordAutomatic(input: AutomaticGradeInput, systemActorId: string): Promise<{ scoreCents: number }> {
+    const assessment = await this.assessments.findGradable(input.assessmentId);
+    if (!assessment || assessment.type !== 'QUIZ' || assessment.courseId !== input.courseId) throw new GradingError('NOT_GRADABLE');
+    const current = await this.grades.find(input.assessmentId, input.studentId);
+    if (current) {
+      if (current.data.detail.sourceId === input.sourceId) return { scoreCents: current.data.scoreCents };
+      throw new GradingError('CONFLICT');
+    }
+    const strategy = strategyFor('QUIZ'); const result = strategy.grade({ questions: input.questions, answers: input.answers });
+    const grade = Grade.first({ id: this.runtime.id(), assessmentId: input.assessmentId, courseId: input.courseId, studentId: input.studentId,
+      gradedBy: systemActorId, gradedAt: this.runtime.now() }, { ...result, detail: { ...result.detail, sourceId: input.sourceId } }, strategy.origin, 'Calificación automática del intento');
+    try { await this.grades.save(grade, null, systemActorId); }
+    catch (error) {
+      // A concurrent consumer may have stored the same source first: that is the same grade, not an error.
+      const stored = error instanceof GradingError && error.code === 'CONFLICT' ? await this.grades.find(input.assessmentId, input.studentId) : null;
+      if (stored?.data.detail.sourceId === input.sourceId) return { scoreCents: stored.data.scoreCents };
+      throw error;
+    }
+    return { scoreCents: result.scoreCents };
+  }
+  async scoreOf(assessmentId: string, studentId: string): Promise<number | null> {
+    return (await this.grades.find(assessmentId, studentId))?.data.scoreCents ?? null;
   }
 
   /** A student only sees their own grades of published/closed assessments of a published course they are enrolled in. */

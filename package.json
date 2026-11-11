@@ -24,7 +24,8 @@
     "user:create": "npm run user:create -w @edutrack/api",
     "dev:api": "npm run dev -w @edutrack/api",
     "dev:web": "npm run dev -w @edutrack/web",
-    "check": "npm run generate && npm run typecheck && npm run build && npm test"
+    "check": "npm run generate && npm run typecheck && npm run build && npm test",
+    "test:load": "npm run test:load -w @edutrack/api"
   },
   "devDependencies": {
     "@playwright/test": "^1.65.0"

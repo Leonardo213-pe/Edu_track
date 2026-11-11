@@ -89,6 +89,18 @@ describe('assessment use cases', () => {
     const rubric = await service.create('teacher', 'course', { title: 'R', instructions: '', type: 'RUBRIC', weight: 10, dueAt: '2026-12-01T00:00:00Z', criteria: [{ description: 'C', maxPoints: 5 }] });
     await expect(service.preview('teacher', rubric.id)).rejects.toThrow('INVALID_INPUT');
   });
+  it('serves exams: definition, draws without answers from the frozen snapshot and a server-side answer key', async () => {
+    const bank = await bankWithQuestions(3); const created = await service.create('teacher', 'course', quizInput(bank.id));
+    expect(await service.examDefinition(created.id)).toMatchObject({ type: 'QUIZ', status: 'DRAFT', durationMinutes: 30, questionCount: 2 });
+    expect(await service.examDefinition('missing')).toBeNull();
+    await expect(service.drawForAttempt(created.id)).rejects.toThrow('INVALID_STATE');
+    await service.publish('teacher', created.id, 0);
+    const drawn = await service.drawForAttempt(created.id);
+    expect(drawn.map(item => item.position)).toEqual([0, 1]); expect(JSON.stringify(drawn)).not.toContain('correct');
+    const key = await service.answerKey(created.id); expect(key).toHaveLength(3);
+    expect(key[0]).toMatchObject({ pointsCents: 100, correctOptionIds: [expect.any(String)] });
+    await service.close('teacher', created.id, 1); await expect(service.drawForAttempt(created.id)).rejects.toThrow('INVALID_STATE');
+  });
   it('offers grading only published or closed assessments through the public catalog', async () => {
     const bank = await bankWithQuestions(); const created = await service.create('teacher', 'course', quizInput(bank.id));
     expect(await service.gradable('course')).toEqual([]); expect(await service.findGradable(created.id)).toBeNull();

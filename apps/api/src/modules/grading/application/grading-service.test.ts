@@ -57,6 +57,27 @@ describe('grading use cases', () => {
     for (const actor of ['other', 'ana', 'designer']) await expect(service.gradebook(actor, 'course')).rejects.toThrow('FORBIDDEN');
     await expect(service.gradebook('teacher', 'missing')).rejects.toThrow('NOT_FOUND');
   });
+  it('records automatic grades of attempts idempotently per source with the system actor', async () => {
+    const input = { assessmentId: 'quiz', courseId: 'course', studentId: 'ana', sourceId: 'attempt-1',
+      questions: [{ questionId: 'q1', pointsCents: 300, correctOptionIds: ['a'] }, { questionId: 'q2', pointsCents: 100, correctOptionIds: ['x', 'y'] }], answers: { q1: ['a'], q2: ['x'] } };
+    expect(await service.recordAutomatic(input, 'system')).toEqual({ scoreCents: 1500 });
+    expect(saves).toEqual([{ actor: 'system', version: null }]);
+    expect(stored.get('quiz:ana')!.data).toMatchObject({ origin: 'AUTOMATIC', gradedBy: 'system', reason: 'Calificación automática del intento', detail: { sourceId: 'attempt-1', earnedCents: 300 } });
+    expect(await service.recordAutomatic(input, 'system')).toEqual({ scoreCents: 1500 }); expect(saves).toHaveLength(1);
+    await expect(service.recordAutomatic({ ...input, sourceId: 'attempt-2' }, 'system')).rejects.toThrow('CONFLICT');
+    await expect(service.recordAutomatic({ ...input, assessmentId: 'essay' }, 'system')).rejects.toThrow('NOT_GRADABLE');
+    await expect(service.recordAutomatic({ ...input, courseId: 'other' }, 'system')).rejects.toThrow('NOT_GRADABLE');
+    expect(await service.scoreOf('quiz', 'ana')).toBe(1500); expect(await service.scoreOf('quiz', 'beto')).toBeNull();
+  });
+  it('treats a concurrent insert of the same source as the same grade', async () => {
+    const input = { assessmentId: 'quiz', courseId: 'course', studentId: 'beto', sourceId: 'attempt-9', questions: [{ questionId: 'q1', pointsCents: 100, correctOptionIds: ['a'] }], answers: {} };
+    const original = (service as unknown as { grades: GradeRepository }).grades.save;
+    (service as unknown as { grades: GradeRepository }).grades.save = async (grade, expected, actor) => {
+      stored.set('quiz:beto', grade); void expected; void actor; throw new GradingError('CONFLICT'); // another consumer committed first
+    };
+    expect(await service.recordAutomatic(input, 'system')).toEqual({ scoreCents: 0 });
+    (service as unknown as { grades: GradeRepository }).grades.save = original;
+  });
   it('shows students only their own grades and average, without internal reasons', async () => {
     await service.gradeRubric('teacher', 'essay', 'ana', { awards: full }); await service.gradeRubric('teacher', 'essay', 'beto', { awards: [{ criterionId: 'c1', points: 0 }, { criterionId: 'c2', points: 0 }] });
     const mine = await service.myGrades('ana', 'course');

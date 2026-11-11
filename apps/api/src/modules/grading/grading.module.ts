@@ -4,7 +4,9 @@ import { IDENTITY_DIRECTORY, type IdentityDirectory } from '../identity/public';
 import { COURSE_CATALOG, type CourseCatalog } from '../courses/public';
 import { ENROLLMENT_ACCESS, type EnrollmentAccess } from '../enrollments/public';
 import { ASSESSMENT_CATALOG, type AssessmentCatalog } from '../assessments/public';
+import { SYSTEM_ACTOR_ID } from '../audit/public';
 import { BearerGuard } from '../../platform/http/bearer-guard';
+import { GRADE_RECORDER, type GradeRecorder } from './public';
 import { GradingService } from './application/grading-service';
 import { GradingController } from './infrastructure/http/grading.controller';
 import { PrismaGradeRepository } from './infrastructure/persistence/prisma-grade-repository';
@@ -23,7 +25,9 @@ export class GradingModule {
             { role: async id => (await identity.findPrincipal(id))?.role ?? null,
               names: async ids => new Map((await identity.findUsers(ids)).map(user => [user.id, user.displayName])) },
             { id: randomUUID, now: () => new Date().toISOString() }) },
+      { provide: GRADE_RECORDER, inject: [GradingService], useFactory: (grading: GradingService): GradeRecorder => ({
+        recordAutomatic: input => grading.recordAutomatic(input, SYSTEM_ACTOR_ID), scoreOf: (assessmentId, studentId) => grading.scoreOf(assessmentId, studentId) }) },
       BearerGuard,
-    ] };
+    ], exports: [GRADE_RECORDER] };
   }
 }

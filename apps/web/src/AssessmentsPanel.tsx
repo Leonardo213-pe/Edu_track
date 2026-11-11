@@ -1,5 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { assessmentStates, evaluationApi, points, questionTypes, type Assessment, type Bank, type MyGrades } from './assessments-api';
+import { ExamView } from './ExamView';
+
+type AttemptRow = { id: string; displayName: string; status: string; startedAt: string; finalizedAt: string | null; finalizedBy: string | null; answered: number; questionCount: number; score: number | null };
+const attemptStates: Record<string, string> = { IN_PROGRESS: 'En curso', SUBMITTED: 'Finalizado', EXPIRED: 'Cerrado por tiempo' };
 
 type Preview = { poolSize: number; questions: { questionId: string; statement: string; type: keyof typeof questionTypes; pointsCents: number; options: { id: string; text: string; correct: boolean }[] }[] };
 const toLocalInput = (iso: string) => { const date = new Date(iso); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); };
@@ -53,6 +57,8 @@ export function AssessmentsPanel({ courseId, courseStatus, token, role, manager,
   const [preview, setPreview] = useState<Preview | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState('');
+  const [exam, setExam] = useState<string | null>(null);
+  const [attempts, setAttempts] = useState<{ title: string; rows: AttemptRow[] } | null>(null);
   const student = role === 'STUDENT';
   async function load() {
     try {
@@ -68,6 +74,7 @@ export function AssessmentsPanel({ courseId, courseStatus, token, role, manager,
   }
   const totalWeight = (items ?? []).reduce((sum, item) => sum + item.weightBp, 0) / 100;
   const gradeOf = (id: string) => mine?.grades.find(grade => grade.assessmentId === id);
+  if (exam) return <ExamView assessmentId={exam} token={token} failed={failed} close={() => { setExam(null); void load(); }} />;
   return <section className="panel"><h3>{student ? 'Evaluaciones y mis notas' : 'Evaluaciones del curso'}</h3>
     {notice && <p className="success" role="status">{notice}</p>}
     {!student && <p className="muted">Peso total asignado: {totalWeight.toLocaleString('es-PE')} % de 100 %. Escala vigesimal 0–20, aprobación con 11.</p>}
@@ -84,7 +91,8 @@ export function AssessmentsPanel({ courseId, courseStatus, token, role, manager,
           <td>{item.title}{item.type === 'QUIZ' && <small> · {item.questionCount} preguntas, {item.durationMinutes} min</small>}</td>
           <td>{item.type === 'QUIZ' ? 'Cuestionario' : 'Rúbrica'}</td><td>{(item.weightBp / 100).toLocaleString('es-PE')} %</td>
           <td>{new Date(item.dueAt).toLocaleString('es-PE')}</td><td>{assessmentStates[item.status]}</td>
-          {student ? <td>{gradeOf(item.id) ? gradeOf(item.id)!.score.toLocaleString('es-PE') : '—'}</td> : <td className="material-actions">
+          {student ? <td>{gradeOf(item.id) ? gradeOf(item.id)!.score.toLocaleString('es-PE') : '—'}
+            {item.type === 'QUIZ' && <button className="quiet" aria-label={`Rendir ${item.title}`} onClick={() => setExam(item.id)}>{item.status === 'PUBLISHED' ? 'Rendir / continuar' : 'Ver intento'}</button>}</td> : <td className="material-actions">
             {manager && item.status !== 'CLOSED' && <button className="quiet" disabled={busy} onClick={() => setEditing(editing === item.id ? null : item.id)}>Editar</button>}
             {manager && item.status === 'DRAFT' && <button className="quiet" disabled={busy || courseStatus !== 'PUBLICADO'} title={courseStatus !== 'PUBLICADO' ? 'Publica primero el curso' : undefined}
               onClick={() => run(() => evaluationApi(`/assessments/${item.id}/publish`, token, { revision: item.revision }), 'Evaluación publicada.')}>Publicar</button>}
@@ -92,12 +100,18 @@ export function AssessmentsPanel({ courseId, courseStatus, token, role, manager,
               onClick={() => { if (window.confirm('¿Cerrar la evaluación? Seguirá admitiendo calificaciones, pero no cambios.')) void run(() => evaluationApi(`/assessments/${item.id}/close`, token, { revision: item.revision }), 'Evaluación cerrada.'); }}>Cerrar</button>}
             {manager && item.status === 'DRAFT' && <button className="quiet danger" disabled={busy}
               onClick={() => { if (window.confirm('¿Eliminar el borrador?')) void run(() => evaluationApi(`/assessments/${item.id}?revision=${item.revision}`, token, undefined, 'DELETE'), 'Borrador eliminado.'); }}>Eliminar</button>}
+            {manager && item.type === 'QUIZ' && item.status !== 'DRAFT' && <button className="quiet" disabled={busy}
+              onClick={async () => { try { setAttempts({ title: item.title, rows: await evaluationApi<AttemptRow[]>(`/exams/assessments/${item.id}/attempts`, token) }); } catch (error) { failed(error); } }}>Intentos</button>}
             {manager && item.type === 'QUIZ' && <button className="quiet" disabled={busy}
               onClick={async () => { try { setPreview(await evaluationApi<Preview>(`/assessments/${item.id}/preview`, token)); } catch (error) { failed(error); } }}>Vista previa del sorteo</button>}
           </td>}
         </tr>)}</tbody></table></div>}
     {manager && editing && items && (() => { const item = items.find(entry => entry.id === editing)!; return <AssessmentForm key={item.id + item.revision} banks={banks} initial={item} published={item.status !== 'DRAFT'} busy={busy}
       submit={input => run(() => evaluationApi(`/assessments/${item.id}`, token, { ...input, revision: item.revision }, 'PATCH'), 'Evaluación actualizada.')} />; })()}
+    {attempts && <section className="panel" aria-label="Intentos del cuestionario"><div className="section-title"><h4>Intentos: {attempts.title}</h4><button className="quiet" onClick={() => setAttempts(null)}>Cerrar ✕</button></div>
+      {!attempts.rows.length ? <p className="muted">Aún no hay intentos.</p> : <div className="table-scroll"><table><thead><tr><th>Estudiante</th><th>Estado</th><th>Inicio</th><th>Fin</th><th>Respondidas</th><th>Nota</th></tr></thead><tbody>
+        {attempts.rows.map(row => <tr key={row.id}><td>{row.displayName}</td><td>{attemptStates[row.status] ?? row.status}</td><td>{new Date(row.startedAt).toLocaleString('es-PE')}</td>
+          <td>{row.finalizedAt ? new Date(row.finalizedAt).toLocaleString('es-PE') : '—'}</td><td>{row.answered}/{row.questionCount}</td><td>{row.score ?? '—'}</td></tr>)}</tbody></table></div>}</section>}
     {preview && <section className="panel" aria-label="Vista previa del sorteo"><div className="section-title"><h4>Sorteo de ejemplo ({preview.questions.length} de {preview.poolSize})</h4><button className="quiet" onClick={() => setPreview(null)}>Cerrar ✕</button></div>
       <p className="muted">Cada intento del estudiante sorteará su propio conjunto en la fase de exámenes. Esta vista incluye respuestas y solo la ve el docente.</p>
       <ol>{preview.questions.map(question => <li key={question.questionId}><strong>{question.statement}</strong> <small>({points(question.pointsCents)} pts)</small>
