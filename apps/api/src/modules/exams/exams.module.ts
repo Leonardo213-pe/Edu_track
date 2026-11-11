@@ -10,6 +10,7 @@ import { ExamService } from './application/exam-service';
 import { ExamController } from './infrastructure/http/exam.controller';
 import { ExamJobs } from './infrastructure/jobs/exam-jobs';
 import { PrismaExamRepository } from './infrastructure/persistence/prisma-exam-repository';
+import { EXAM_MONITOR } from './public';
 
 @Module({})
 export class ExamsModule {
@@ -27,7 +28,7 @@ export class ExamsModule {
             { recordAutomatic: input => grades.recordAutomatic(input), scoreOf: (assessmentId, studentId) => grades.scoreOf(assessmentId, studentId) },
             { id: randomUUID }) },
       { provide: ExamJobs, inject: [ExamService, PrismaExamRepository], useFactory: (exams: ExamService, repo: PrismaExamRepository) => new ExamJobs(exams, repo, config.jobIntervalMs) },
-      BearerGuard,
-    ] };
+      { provide: EXAM_MONITOR, useExisting: PrismaExamRepository }, BearerGuard,
+    ], exports: [EXAM_MONITOR] };
   }
 }

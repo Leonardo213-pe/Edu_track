@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit", "exams", "collaboration", "analytics", "submissions", "plagiarism"]
+  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit", "exams", "collaboration", "analytics", "submissions", "plagiarism", "administration"]
 }
 generator courseClient {
   provider = "prisma-client"
@@ -609,4 +609,32 @@ model PlagiarismReport {
   @@index([assessmentId])
   @@map("reports")
   @@schema("plagiarism")
+}
+generator administrationClient {
+  provider = "prisma-client"
+  output = "../src/modules/administration/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+// Part C: request metrics per minute, replica and route (merged by the monitoring panel) and replica heartbeats (CAR-14).
+model RequestMetric {
+  minute DateTime @db.Timestamptz(3)
+  instance String @db.VarChar(80)
+  method String @db.VarChar(10)
+  route String @db.VarChar(200)
+  count Int
+  errors Int
+  totalMs BigInt
+  buckets Int[]
+  @@id([minute, instance, method, route])
+  @@index([minute])
+  @@map("request_metrics")
+  @@schema("administration")
+}
+model ApiInstance {
+  id String @id @db.VarChar(80)
+  startedAt DateTime @db.Timestamptz(3)
+  lastSeenAt DateTime @db.Timestamptz(3)
+  @@map("instances")
+  @@schema("administration")
 }

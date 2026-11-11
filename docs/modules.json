@@ -11,6 +11,6 @@
   {"id":"collaboration","status":"implemented","owns":"forums per course/unit, threads, messages with moderation, subscriptions (Observer), notification inbox, due-date reminders","dependencies":["identity","courses","enrollments","assessments"]},
   {"id":"analytics","status":"implemented","owns":"connection time per student/course/day, configurable risk rules per course, explainable risk projection","dependencies":["identity","courses","enrollments","assessments","grading"]},
   {"id":"plagiarism","status":"implemented-simulated","owns":"similarity reports per submitted file from the PlagiarismProvider port (SIMULATED n-gram provider locally), asynchronous idempotent outbox consumer","dependencies":["identity","courses","assessments","submissions"]},
-  {"id":"audit","status":"implemented","owns":"append-only hash-chained audit entries, database write contract audit.append_entry and chain verification","dependencies":["identity"]},
-  {"id":"administration","status":"implemented","owns":"operational alerts to administrators (registry failures); monitoring views","dependencies":["identity","enrollments","collaboration"]}
+  {"id":"audit","status":"implemented","owns":"append-only hash-chained audit entries, database write contract audit.append_entry, chain verification and periodic external anchoring of the chain head","dependencies":["identity"]},
+  {"id":"administration","status":"implemented","owns":"request metrics per replica/route (p50/p95, error rate), replica heartbeats, operational panel and threshold/registry alerts to administrators","dependencies":["identity","enrollments","collaboration","exams","submissions","audit"]}
 ]

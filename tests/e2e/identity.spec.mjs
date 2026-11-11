@@ -72,7 +72,7 @@ test('real browser: identity, recovery and optional academic course workflow', a
     mailId = result.messages.find(message => message.To.some(to => to.Address === studentEmail))?.ID; return !!mailId;
   }, { timeout: 15000 }).toBe(true);
   const message = await (await request.get(`http://localhost:8025/api/v1/message/${mailId}`)).json();
-  const link = message.Text.match(/http:\/\/localhost:8080\/#reset=[a-f0-9]{64}/)?.[0]; expect(link).toBeTruthy();
+  const link = message.Text.match(/https:\/\/localhost:8443\/#reset=[a-f0-9]{64}/)?.[0]; expect(link).toBeTruthy();
   await page.goto(link); await expect(page.getByLabel('Nueva contraseña', { exact: true })).toBeVisible(); expect(page.url()).not.toContain('#reset');
   await page.getByLabel('Nueva contraseña', { exact: true }).fill(`${password}new`); await page.getByLabel('Confirma la contraseña').fill(`${password}new`);
   await page.getByRole('button', { name: /Actualizar contraseña/ }).click(); await expect(page.getByRole('status')).toContainText('Contraseña actualizada');

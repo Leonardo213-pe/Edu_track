@@ -124,5 +124,14 @@ export class PrismaExamRepository implements ExamRepository {
     }, { timeout: 30000 });
   }
   async ping(): Promise<void> { await this.db.$queryRaw`SELECT 1`; }
+  async snapshot(): Promise<{ activeAttempts: number; outbox: { pending: number; failing: number; oldestPendingSeconds: number | null } }> {
+    const [row] = await this.db.$queryRaw<{ active: number; pending: number; failing: number; oldest: number | null }[]>`
+      SELECT (SELECT count(*)::int FROM exams.attempts WHERE status = 'IN_PROGRESS') AS active,
+        count(*)::int AS pending, count(*) FILTER (WHERE attempts > 0)::int AS failing,
+        EXTRACT(EPOCH FROM clock_timestamp() - min("createdAt"))::float8 AS oldest
+      FROM exams.outbox WHERE "processedAt" IS NULL`;
+    return { activeAttempts: row?.active ?? 0, outbox: { pending: row?.pending ?? 0, failing: row?.failing ?? 0,
+      oldestPendingSeconds: row?.oldest === null || row?.oldest === undefined ? null : Math.round(row.oldest) } };
+  }
   async onModuleDestroy() { await this.db.$disconnect(); }
 }

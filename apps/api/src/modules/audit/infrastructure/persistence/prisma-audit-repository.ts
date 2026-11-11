@@ -17,5 +17,14 @@ export class PrismaAuditRepository implements AuditRepository {
     const [row] = await this.db.$queryRaw<{ checked: bigint; first_invalid: bigint | null }[]>`SELECT checked, first_invalid FROM audit.verify_chain()`;
     return { checked: Number(row?.checked ?? 0), valid: row?.first_invalid == null, firstInvalidId: row?.first_invalid == null ? null : row.first_invalid.toString() };
   }
+  async head(): Promise<{ id: string; hash: string } | null> {
+    const row = await this.db.auditEntry.findFirst({ orderBy: { id: 'desc' }, select: { id: true, hash: true } });
+    return row ? { id: row.id.toString(), hash: row.hash } : null;
+  }
+  async hashesOf(ids: string[]): Promise<Map<string, string>> {
+    if (!ids.length) return new Map();
+    const rows = await this.db.auditEntry.findMany({ where: { id: { in: ids.map(id => BigInt(id)) } }, select: { id: true, hash: true } });
+    return new Map(rows.map(row => [row.id.toString(), row.hash]));
+  }
   async onModuleDestroy() { await this.db.$disconnect(); }
 }

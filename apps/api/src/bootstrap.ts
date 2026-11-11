@@ -38,12 +38,16 @@ class AppModule {
     const grading = GradingModule.register(identity, enrollments, courses, assessments, collaboration, { databaseUrl: config.databaseUrl });
     const submissions = SubmissionsModule.register([identity, enrollments, courses, assessments, grading, collaboration],
       { databaseUrl: config.databaseUrl, storageRoot: config.academic?.submissionStorageRoot });
-    return { module: AppModule, imports: [identity, enrollments, courses, assessments, collaboration, grading, submissions,
+    const exams = ExamsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl, jobIntervalMs: config.examJobIntervalMs });
+    const audit = AuditModule.register(identity, { databaseUrl: config.databaseUrl, anchorDir: config.audit?.anchorDir, anchorIntervalMs: config.audit?.anchorIntervalMs });
+    const monitoring = config.monitoring ?? {};
+    const thresholds = Object.fromEntries(Object.entries({ p95Ms: monitoring.p95Ms, errorRatePct: monitoring.errorRatePct, outboxAgeSeconds: monitoring.outboxAgeSeconds })
+      .filter(([, value]) => value !== undefined));
+    return { module: AppModule, imports: [identity, enrollments, courses, assessments, collaboration, grading, submissions, exams, audit,
       PlagiarismModule.register([identity, courses, assessments, submissions], { databaseUrl: config.databaseUrl, jobIntervalMs: config.examJobIntervalMs }),
-      ExamsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl, jobIntervalMs: config.examJobIntervalMs }),
       AnalyticsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl }),
-      AuditModule.register(identity, { databaseUrl: config.databaseUrl }),
-      AdministrationModule.register([identity, enrollments, collaboration], { alertIntervalMs: config.alertIntervalMs }),
+      AdministrationModule.register([identity, enrollments, collaboration, exams, submissions, audit], { databaseUrl: config.databaseUrl,
+        alertIntervalMs: config.alertIntervalMs, metricsFlushMs: monitoring.flushMs, instanceId: monitoring.instanceId, thresholds }),
       ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }])],
       controllers: [HealthController], providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }] };
   }

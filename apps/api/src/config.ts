@@ -12,6 +12,9 @@ export interface AppConfig {
   registry?: { url?: string; apiKey?: string; retryBaseMs?: number; schedulerIntervalMs?: number };
   /** Period of the operational alert check (administration); default 60000 ms. */
   alertIntervalMs?: number;
+  /** Directory on a volume separate from the database where the audit chain head is anchored (CAR-12). */
+  audit?: { anchorDir?: string; anchorIntervalMs?: number };
+  monitoring?: { p95Ms?: number; errorRatePct?: number; outboxAgeSeconds?: number; flushMs?: number; instanceId?: string };
 }
 function positive(value: string | undefined, name: string): number | undefined {
   if (value === undefined || value.trim() === '') return undefined;
@@ -57,5 +60,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return { databaseUrl, jwtSecret, port, webOrigin, trustProxy: parseTrustProxy(env.TRUST_PROXY),
     academic: { storageRoot: env.COURSE_STORAGE_ROOT, submissionStorageRoot: env.SUBMISSION_STORAGE_ROOT }, registry: parseRegistry(env),
     alertIntervalMs: positive(env.ALERT_INTERVAL_MS, 'ALERT_INTERVAL_MS'),
+    audit: { anchorDir: env.AUDIT_ANCHOR_DIR?.trim() || undefined, anchorIntervalMs: positive(env.AUDIT_ANCHOR_INTERVAL_MS, 'AUDIT_ANCHOR_INTERVAL_MS') },
+    monitoring: { p95Ms: positive(env.MONITOR_P95_MS, 'MONITOR_P95_MS'), errorRatePct: positive(env.MONITOR_ERROR_RATE_PCT, 'MONITOR_ERROR_RATE_PCT'),
+      outboxAgeSeconds: positive(env.MONITOR_OUTBOX_AGE_SECONDS, 'MONITOR_OUTBOX_AGE_SECONDS'), flushMs: positive(env.METRICS_FLUSH_MS, 'METRICS_FLUSH_MS'),
+      instanceId: env.INSTANCE_ID?.trim().slice(0, 80) || undefined },
     mail: { host, port: smtpPort, from, secure, requireTLS, user: env.SMTP_USER, password: env.SMTP_PASSWORD, webOrigin } };
 }

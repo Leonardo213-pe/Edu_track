@@ -26,4 +26,5 @@ export class AuditController {
     return this.audit.entries(request.principalId, { entity: dto.entity, entityId: dto.entityId }, dto.limit, dto.offset);
   }
   @Get('verify') verify(@Req() request: BearerRequest) { return this.audit.verify(request.principalId); }
+  @Get('anchors/verify') anchors(@Req() request: BearerRequest) { return this.audit.verifyAnchors(request.principalId); }
 }
