@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaClient } from './generated/client';
 import type { Reconciliation, RosterEntry } from '../../domain/enrollment';
 import type { EnrollmentRepository, EnrollmentRun, LinkedSection, RegistrySyncRepository, SyncRun } from '../../application/ports';
@@ -6,7 +7,7 @@ import type { SyncTotals } from '../../domain/registry';
 
 export class PrismaEnrollmentRepository implements EnrollmentRepository, RegistrySyncRepository {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 5, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(5), connectionTimeoutMillis: 5000 }) }); }
 
   async isEnrolled(studentId: string, courseId: string): Promise<boolean> {
     return !!(await this.db.enrollment.findFirst({ where: { studentId, courseId, active: true }, select: { studentId: true } }));

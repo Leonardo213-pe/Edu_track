@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaClient, Prisma } from './generated/client';
 import { AUDIT_ACTOR_SETTING } from '../../../audit/public';
 import { Grade, GradingError, type GradeOrigin } from '../../domain/grading';
@@ -7,7 +8,7 @@ import type { GradeRepository } from '../../application/ports';
 type Row = Prisma.GradeGetPayload<object>;
 export class PrismaGradeRepository implements GradeRepository {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 5, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(5), connectionTimeoutMillis: 5000 }) }); }
   private map(row: Row): Grade {
     return Grade.restore({ ...row, origin: row.origin as GradeOrigin, detail: row.detail as Record<string, unknown>, gradedAt: row.gradedAt.toISOString() });
   }

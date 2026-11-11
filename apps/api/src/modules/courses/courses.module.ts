@@ -8,11 +8,12 @@ import { PrismaCourseRepository } from './infrastructure/persistence/prisma-cour
 import { CourseController } from './infrastructure/http/course.controller';
 import { CourseAuthGuard, UploadAuthorization } from './infrastructure/http/course-http';
 import { LocalCourseStorage } from './infrastructure/storage/local-course-storage';
+import type { StorageSettings } from '../../platform/storage/blob-store';
 import { COURSE_CATALOG } from './public';
 
 @Module({})
 export class CoursesModule {
-  static register(identityModule: DynamicModule, enrollmentsModule: DynamicModule, config: { databaseUrl: string; storageRoot?: string }): DynamicModule {
+  static register(identityModule: DynamicModule, enrollmentsModule: DynamicModule, config: { databaseUrl: string; storageRoot?: string; storage?: StorageSettings }): DynamicModule {
     return { module: CoursesModule, imports: [identityModule, enrollmentsModule], controllers: [CourseController], providers: [
       { provide: PrismaCourseRepository, useFactory: () => new PrismaCourseRepository(config.databaseUrl) },
       { provide: CourseService, inject: [PrismaCourseRepository, IDENTITY_DIRECTORY, ENROLLMENT_ACCESS, REGISTRY_SECTIONS],
@@ -22,7 +23,7 @@ export class CoursesModule {
           names: async ids => new Map((await identity.findUsers(ids)).map(user => [user.id, user.displayName])),
         }, { has: (userId, courseId) => enrollment.isEnrolled(userId, courseId), courses: userId => enrollment.coursesOf(userId),
           link: (courseId, code, period) => sections.link(courseId, code, period) },
-        new LocalCourseStorage(config.storageRoot ?? path.resolve('storage/courses')), { id: randomUUID, now: () => new Date().toISOString() }) },
+        LocalCourseStorage.create(config.storage, config.storageRoot ?? path.resolve('storage/courses')), { id: randomUUID, now: () => new Date().toISOString() }) },
       { provide: COURSE_CATALOG, useExisting: CourseService }, CourseAuthGuard, UploadAuthorization,
     ], exports: [COURSE_CATALOG] };
   }

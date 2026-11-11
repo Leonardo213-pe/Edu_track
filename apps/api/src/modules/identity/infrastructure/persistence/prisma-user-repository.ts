@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Prisma } from './generated/client';
 import type { IdentityData, RecoveryRecord, ResetMailer, ResetMessage, SecurityAction, SecurityEvent, SessionRecord, UserRepository } from '../../application/ports';
@@ -59,7 +60,7 @@ class PrismaIdentityData implements IdentityData {
 export class PrismaUserRepository extends PrismaIdentityData implements UserRepository {
   private readonly client: PrismaClient;
   constructor(connectionString: string, encryptionSecret: string) {
-    const client = new PrismaClient({ adapter: new PrismaPg({ connectionString, max: 10, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 }) });
+    const client = new PrismaClient({ adapter: new PrismaPg({ connectionString, max: capPool(10), connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000 }) });
     super(client, new RecoveryCipher(encryptionSecret)); this.client = client;
   }
   transaction<T>(work: (data: IdentityData) => Promise<T>): Promise<T> {

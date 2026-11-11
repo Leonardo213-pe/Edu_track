@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaClient, Prisma } from './generated/client';
 import type { NotificationDraft, ThreadData } from '../../domain/forum';
 import type { CollaborationRepository, ForumRecord, MessageRecord, NotificationRecord } from '../../application/ports';
@@ -6,7 +7,7 @@ import type { CollaborationRepository, ForumRecord, MessageRecord, NotificationR
 const iso = (date: Date | null) => date ? date.toISOString() : null;
 export class PrismaCollaborationRepository implements CollaborationRepository {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 5, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(5), connectionTimeoutMillis: 5000 }) }); }
   private forum(row: Prisma.ForumGetPayload<object>): ForumRecord { return { ...row, createdAt: row.createdAt.toISOString() }; }
   private thread(row: Prisma.ForumThreadGetPayload<{ include: { forum: { select: { courseId: true } } } }>): ThreadData {
     const { forum, ...data } = row; return { ...data, courseId: forum.courseId, createdAt: row.createdAt.toISOString(), lastActivityAt: row.lastActivityAt.toISOString() };

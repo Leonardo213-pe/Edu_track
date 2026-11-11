@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaClient, Prisma } from './generated/client';
 import { AUDIT_ACTOR_SETTING } from '../../../audit/public';
 import { Assessment, type AssessmentData, type Criterion, type SnapshotQuestion } from '../../domain/assessment';
@@ -9,7 +10,7 @@ type AssessmentRow = Prisma.AssessmentGetPayload<object>;
 type QuestionRow = Prisma.QuestionGetPayload<object>;
 export class PrismaAssessmentRepository implements AssessmentRepository {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 5, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(5), connectionTimeoutMillis: 5000 }) }); }
 
   private question(row: QuestionRow): Question {
     return Question.restore({ id: row.id, bankId: row.bankId, type: row.type as QuestionType, statement: row.statement, pointsCents: row.pointsCents,

@@ -170,6 +170,10 @@ npm.cmd run test:smoke
 
 El E2E y el smoke usan https://localhost:8443 (certificado autofirmado aceptado solo en estas pruebas locales). Con las variables académicas, el E2E recorre también la entrega de una tarea y su informe SIMULADO, la sincronización con el registro SIMULADO (correcta y con caída, alerta incluida) y el panel de monitoreo. Usa `REGISTRY_API_KEY` del `.env` para preparar la sección en el simulador.
 
+## Despliegue en AWS
+
+Arquitectura del informe (CloudFront + S3, ALB, ECS Fargate con 2 réplicas, RDS, S3 versionado) con la plantilla `infra/aws/edutrack.yaml` y el script `scripts/aws/deploy.ps1`. Guía, costos y límites: [docs/DESPLIEGUE_AWS.md](docs/DESPLIEGUE_AWS.md) y [ADR-012](docs/ADR/012-despliegue-aws.md). Data demo ficticia: `SEED_DEMO=true node apps/api/scripts/seed-demo.cjs <contraseña>` (en Compose, dentro del contenedor `api`).
+
 ## Operación (local)
 
 ```sh

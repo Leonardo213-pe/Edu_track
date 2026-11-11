@@ -1,11 +1,12 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaClient } from './generated/client';
 import type { RiskRules } from '../../domain/risk';
 import type { ActivitySummary, AnalyticsRepository } from '../../application/ports';
 
 export class PrismaAnalyticsRepository implements AnalyticsRepository {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 3, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(3), connectionTimeoutMillis: 5000 }) }); }
   async heartbeat(userId: string, courseId: string): Promise<number | null> {
     // Days follow the institution's time zone; repeated beats within 50 s do not inflate the connected minutes.
     const [row] = await this.db.$queryRaw<{ minutes: number }[]>`

@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaClient, type Prisma } from './generated/client';
 import type { FileRecord, ReceiveCommand, SubmissionRecord, SubmissionRepository } from '../../application/ports';
 import type { SubmissionEvents, SubmissionReceived, SubmissionText } from '../../public';
@@ -10,7 +11,7 @@ const fileColumns = { id: true, submissionId: true, version: true, storageKey: t
 
 export class PrismaSubmissionRepository implements SubmissionRepository, SubmissionEvents {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 5, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(5), connectionTimeoutMillis: 5000 }) }); }
 
   private async record(row: { id: string; assessmentId: string; courseId: string; studentId: string; version: number; currentFileId: string; firstSubmittedAt: Date; updatedAt: Date },
     client: Pick<PrismaClient, 'submissionFile'> = this.db): Promise<SubmissionRecord> {

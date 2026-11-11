@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Prisma } from './generated/client';
 import { Course, CourseError, type ChangeAction, type CourseData, type PendingChange } from '../../domain/course';
@@ -11,7 +12,7 @@ type Row = Prisma.CourseGetPayload<{ include: typeof tree }>;
 
 export class PrismaCourseRepository implements CourseRepository {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 10, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(10), connectionTimeoutMillis: 5000 }) }); }
 
   private map(row: Row): Course {
     return new Course({ ...row, createdAt: row.createdAt.toISOString(),

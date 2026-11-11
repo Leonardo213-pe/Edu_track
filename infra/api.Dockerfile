@@ -16,7 +16,9 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/apps/api ./apps/api
 COPY --from=build --chown=node:node /app/package*.json ./
-RUN mkdir -p /app/storage/courses /app/storage/submissions && chown -R node:node /app/storage
+# Amazon RDS certificate authorities: the API verifies the database TLS certificate (sslmode=verify-full) on AWS.
+ADD --chmod=644 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /app/certs/rds-global-bundle.pem
+RUN chmod 755 /app/certs && mkdir -p /app/storage/courses /app/storage/submissions && chown -R node:node /app/storage
 USER node
 EXPOSE 3000
 CMD ["node", "apps/api/dist/main.js"]

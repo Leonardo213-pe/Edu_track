@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Prisma } from './generated/client';
 import { Attempt, ExamError, type AttemptData, type AttemptQuestion, type SavedAnswer } from '../../domain/attempt';
@@ -13,7 +14,7 @@ export class PrismaExamRepository implements ExamRepository {
   readonly db: PrismaClient;
   /** Exam traffic gets its own pool so slow background work never starves answer saving (EAC-01). */
   constructor(url: string, poolSize = 20) {
-    this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: poolSize, connectionTimeoutMillis: 5000 }) });
+    this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(poolSize), connectionTimeoutMillis: 5000 }) });
   }
   private map(row: AttemptRow | RawAttempt): Attempt {
     return Attempt.restore({ id: row.id, assessmentId: row.assessmentId, courseId: row.courseId, studentId: row.studentId, status: row.status as AttemptData['status'],

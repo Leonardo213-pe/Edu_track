@@ -12,18 +12,19 @@ import { SubmissionService } from './application/submission-service';
 import { SubmissionController, SubmissionUploadAuthorization } from './infrastructure/http/submission.controller';
 import { PrismaSubmissionRepository } from './infrastructure/persistence/prisma-submission-repository';
 import { LocalSubmissionStorage } from './infrastructure/storage/local-submission-storage';
+import type { StorageSettings } from '../../platform/storage/blob-store';
 import { DocumentTextExtractor } from './infrastructure/text/document-text-extractor';
 import { SUBMISSION_EVENTS } from './public';
 
 @Module({})
 export class SubmissionsModule {
-  static register(imports: DynamicModule[], config: { databaseUrl: string; storageRoot?: string }): DynamicModule {
+  static register(imports: DynamicModule[], config: { databaseUrl: string; storageRoot?: string; storage?: StorageSettings }): DynamicModule {
     return { module: SubmissionsModule, imports, controllers: [SubmissionController], providers: [
       { provide: PrismaSubmissionRepository, useFactory: () => new PrismaSubmissionRepository(config.databaseUrl) },
       { provide: SubmissionService, inject: [PrismaSubmissionRepository, IDENTITY_DIRECTORY, COURSE_CATALOG, ENROLLMENT_ACCESS, ASSESSMENT_CATALOG, GRADE_RECORDER, NOTIFICATION_SENDER],
         useFactory: (repo: PrismaSubmissionRepository, identity: IdentityDirectory, courses: CourseCatalog, enrollment: EnrollmentAccess, assessments: AssessmentCatalog,
           grades: GradeRecorder, notifications: NotificationSender) => new SubmissionService(repo,
-          new LocalSubmissionStorage(config.storageRoot ?? path.resolve('storage/submissions')), new DocumentTextExtractor(),
+          LocalSubmissionStorage.create(config.storage, config.storageRoot ?? path.resolve('storage/submissions')), new DocumentTextExtractor(),
           { find: async id => { const principal = await identity.findPrincipal(id); return principal ? { id: principal.id, role: principal.role } : null; },
             names: async ids => new Map((await identity.findUsers(ids)).map(user => [user.id, user.displayName])) },
           { assignment: async id => { const item = await assessments.examDefinition(id); return item ? { id: item.id, courseId: item.courseId, title: item.title, type: item.type, status: item.status, dueAt: item.dueAt } : null; },

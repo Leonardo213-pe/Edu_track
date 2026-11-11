@@ -32,14 +32,14 @@ class AppModule {
   static register(config: AppConfig): DynamicModule {
     const identity = IdentityModule.register(config);
     const enrollments = EnrollmentsModule.register(identity, { databaseUrl: config.databaseUrl, registry: config.registry });
-    const courses = CoursesModule.register(identity, enrollments, { databaseUrl: config.databaseUrl, storageRoot: config.academic?.storageRoot });
+    const courses = CoursesModule.register(identity, enrollments, { databaseUrl: config.databaseUrl, storageRoot: config.academic?.storageRoot, storage: config.storage });
     const assessments = AssessmentsModule.register(identity, enrollments, courses, { databaseUrl: config.databaseUrl });
     const collaboration = CollaborationModule.register([identity, enrollments, courses, assessments], { databaseUrl: config.databaseUrl, reminderIntervalMs: config.reminderIntervalMs });
     const grading = GradingModule.register(identity, enrollments, courses, assessments, collaboration, { databaseUrl: config.databaseUrl });
     const submissions = SubmissionsModule.register([identity, enrollments, courses, assessments, grading, collaboration],
-      { databaseUrl: config.databaseUrl, storageRoot: config.academic?.submissionStorageRoot });
+      { databaseUrl: config.databaseUrl, storageRoot: config.academic?.submissionStorageRoot, storage: config.storage });
     const exams = ExamsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl, jobIntervalMs: config.examJobIntervalMs });
-    const audit = AuditModule.register(identity, { databaseUrl: config.databaseUrl, anchorDir: config.audit?.anchorDir, anchorIntervalMs: config.audit?.anchorIntervalMs });
+    const audit = AuditModule.register(identity, { databaseUrl: config.databaseUrl, anchorDir: config.audit?.anchorDir, anchorIntervalMs: config.audit?.anchorIntervalMs, storage: config.storage });
     const monitoring = config.monitoring ?? {};
     const thresholds = Object.fromEntries(Object.entries({ p95Ms: monitoring.p95Ms, errorRatePct: monitoring.errorRatePct, outboxAgeSeconds: monitoring.outboxAgeSeconds })
       .filter(([, value]) => value !== undefined));

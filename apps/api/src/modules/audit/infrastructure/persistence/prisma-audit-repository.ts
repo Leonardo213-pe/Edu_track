@@ -1,4 +1,5 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaClient } from './generated/client';
 import type { AuditEntry, ChainStatus } from '../../domain/audit';
 import type { AuditFilter, AuditRepository } from '../../application/ports';
@@ -6,7 +7,7 @@ import type { AuditFilter, AuditRepository } from '../../application/ports';
 /** Read-only adapter: entries are written exclusively by the audit.append_entry database function. */
 export class PrismaAuditRepository implements AuditRepository {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 3, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(3), connectionTimeoutMillis: 5000 }) }); }
   async list(filter: AuditFilter, limit: number, offset: number): Promise<AuditEntry[]> {
     const rows = await this.db.auditEntry.findMany({ where: { ...(filter.entity ? { entity: filter.entity } : {}), ...(filter.entityId ? { entityId: filter.entityId } : {}) },
       orderBy: { id: 'desc' }, take: limit, skip: offset });

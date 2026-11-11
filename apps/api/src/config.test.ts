@@ -15,8 +15,17 @@ describe('runtime configuration', () => {
     expect(loadConfig({ ...base, ALLOW_TEST_ENROLLMENTS: 'false' }).academic).toEqual({ storageRoot: undefined, submissionStorageRoot: undefined });
     expect(() => loadConfig({ ...base, JWT_SECRET: 'short' })).toThrow('JWT_SECRET');
   });
+  it('selects local or S3-compatible object storage and rejects incomplete S3 settings', () => {
+    expect(loadConfig(base).storage).toEqual({ driver: 'local' });
+    const s3 = { STORAGE_DRIVER: 's3', S3_ENDPOINT: 'https://acct.r2.cloudflarestorage.com', S3_BUCKET: 'edutrack', S3_ACCESS_KEY_ID: 'id', S3_SECRET_ACCESS_KEY: 'secret' };
+    expect(loadConfig({ ...base, ...s3 }).storage).toEqual({ driver: 's3', s3: { endpoint: s3.S3_ENDPOINT, bucket: 'edutrack', region: 'auto', accessKeyId: 'id', secretAccessKey: 'secret' } });
+    expect(() => loadConfig({ ...base, ...s3, S3_BUCKET: '' })).toThrow('requires S3_ENDPOINT');
+    expect(() => loadConfig({ ...base, ...s3, S3_SECRET_ACCESS_KEY: '' })).toThrow('both or none');
+    expect(loadConfig({ ...base, ...s3, S3_ACCESS_KEY_ID: '', S3_SECRET_ACCESS_KEY: '' }).storage).toMatchObject({ driver: 's3', s3: { accessKeyId: '' } });
+    expect(() => loadConfig({ ...base, STORAGE_DRIVER: 'ftp' })).toThrow('local or s3');
+  });
   it('configures the (SIMULATED) Academic Registry only with a URL and a strong key together', () => {
-    expect(loadConfig(base).registry).toEqual({ url: undefined, apiKey: undefined, retryBaseMs: undefined, schedulerIntervalMs: undefined });
+    expect(loadConfig(base).registry).toEqual({ url: undefined, apiKey: undefined, retryBaseMs: undefined, schedulerIntervalMs: undefined, timeoutMs: undefined });
     expect(loadConfig({ ...base, REGISTRY_URL: 'http://registry:4010', REGISTRY_API_KEY: 'k'.repeat(16), REGISTRY_RETRY_BASE_MS: '50', ALERT_INTERVAL_MS: '1000' }))
       .toMatchObject({ registry: { url: 'http://registry:4010', retryBaseMs: 50 }, alertIntervalMs: 1000 });
     expect(() => loadConfig({ ...base, REGISTRY_URL: 'http://registry:4010' })).toThrow('set together');

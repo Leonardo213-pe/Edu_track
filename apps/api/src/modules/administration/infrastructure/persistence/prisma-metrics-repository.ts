@@ -1,11 +1,12 @@
 import { PrismaPg } from '@prisma/adapter-pg';
+import { capPool } from '../../../../platform/persistence/pool-size';
 import { PrismaClient } from './generated/client';
 import type { MetricsRepository } from '../../application/ports';
 import type { MetricRow } from '../../domain/metrics';
 
 export class PrismaMetricsRepository implements MetricsRepository {
   private readonly db: PrismaClient;
-  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: 2, connectionTimeoutMillis: 5000 }) }); }
+  constructor(url: string) { this.db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url, max: capPool(2), connectionTimeoutMillis: 5000 }) }); }
   async add(instance: string, rows: readonly MetricRow[]): Promise<void> {
     await this.db.$transaction(async tx => {
       for (const row of rows) await tx.$executeRaw`

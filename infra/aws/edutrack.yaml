@@ -1,0 +1,442 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  EduTrack LMS on AWS following the report (fig. 12): CloudFront + S3 for the SPA, Application Load Balancer, ECS
+  Fargate with 2 replicas of the single deployable backend (ADR-001: no separate Worker), RDS PostgreSQL, versioned
+  S3 for materials/submissions/audit anchors and CloudWatch Logs. No ElastiCache (ADR-009) and no SQS (transactional
+  outbox in PostgreSQL). The Academic Registry is the SIMULATED one, as an internal service. See docs/DESPLIEGUE_AWS.md.
+
+Parameters:
+  ApiImageUri:
+    Type: String
+    Description: ECR image of the API (infra/api.Dockerfile), e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com/edutrack-api:v1
+  RegistryImageUri:
+    Type: String
+    Description: ECR image of the SIMULATED Academic Registry (infra/registry.Dockerfile)
+  ApiDesiredCount:
+    Type: Number
+    Default: 2
+    MinValue: 0
+    MaxValue: 4
+    Description: API replicas (0 pauses the API to save credits)
+  DbInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+  DbEngineVersion:
+    Type: String
+    Default: '17.11'
+    Description: PostgreSQL 17 minor version available in your region (the project is verified on PostgreSQL 17)
+  DbMultiAZ:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Multi-AZ as in the report (doubles the database cost)
+  DbPoolMax:
+    Type: Number
+    Default: 3
+    Description: Cap of every module's connection pool per replica (DB_POOL_MAX)
+  TrustProxy:
+    Type: String
+    Default: '2'
+    Description: Proxy hops in front of the API (ALB + CloudFront); verify the client IP in "Eventos de seguridad"
+  DomainName:
+    Type: String
+    Default: ''
+    Description: Optional custom domain for CloudFront (enforces TLS 1.2+). Leave empty to use the *.cloudfront.net URL
+  CertificateArn:
+    Type: String
+    Default: ''
+    Description: ACM certificate in us-east-1 for DomainName (required only with DomainName)
+
+Conditions:
+  HasDomain: !Not [!Equals [!Ref DomainName, '']]
+  IsMultiAZ: !Equals [!Ref DbMultiAZ, 'true']
+
+Resources:
+  # ---------- Network: 2 public subnets for ALB/tasks (no NAT gateway, to save credits), 2 isolated for RDS ----------
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties: { CidrBlock: 10.20.0.0/16, EnableDnsHostnames: true, EnableDnsSupport: true, Tags: [{ Key: Name, Value: edutrack }] }
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: { VpcId: !Ref Vpc, InternetGatewayId: !Ref InternetGateway }
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties: { VpcId: !Ref Vpc, CidrBlock: 10.20.0.0/24, MapPublicIpOnLaunch: true, AvailabilityZone: !Select [0, !GetAZs ''] }
+  PublicSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties: { VpcId: !Ref Vpc, CidrBlock: 10.20.1.0/24, MapPublicIpOnLaunch: true, AvailabilityZone: !Select [1, !GetAZs ''] }
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties: { VpcId: !Ref Vpc, CidrBlock: 10.20.10.0/24, AvailabilityZone: !Select [0, !GetAZs ''] }
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties: { VpcId: !Ref Vpc, CidrBlock: 10.20.11.0/24, AvailabilityZone: !Select [1, !GetAZs ''] }
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: { VpcId: !Ref Vpc }
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties: { RouteTableId: !Ref PublicRouteTable, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref InternetGateway }
+  PublicSubnetARoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PublicSubnetA, RouteTableId: !Ref PublicRouteTable }
+  PublicSubnetBRoutes:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: { SubnetId: !Ref PublicSubnetB, RouteTableId: !Ref PublicRouteTable }
+
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ALB, reachable only with the CloudFront origin secret header (checked by the listener rule)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress: [{ IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }]
+  ApiSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: API tasks, only from the ALB
+      VpcId: !Ref Vpc
+      SecurityGroupIngress: [{ IpProtocol: tcp, FromPort: 3000, ToPort: 3000, SourceSecurityGroupId: !Ref AlbSecurityGroup }]
+  RegistrySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SIMULATED registry, only from the API tasks
+      VpcId: !Ref Vpc
+      SecurityGroupIngress: [{ IpProtocol: tcp, FromPort: 4010, ToPort: 4010, SourceSecurityGroupId: !Ref ApiSecurityGroup }]
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: PostgreSQL, only from the API tasks (and one-off tasks with the same group)
+      VpcId: !Ref Vpc
+      SecurityGroupIngress: [{ IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref ApiSecurityGroup }]
+
+  # ---------- Secrets (generated by AWS; never in Git). No punctuation so they are URL-safe in DATABASE_URL ----------
+  DbOwnerSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: EduTrack RDS owner (migrations only)
+      GenerateSecretString: { SecretStringTemplate: '{"username":"edutrack"}', GenerateStringKey: password, PasswordLength: 32, ExcludePunctuation: true }
+  AppDbSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: EduTrack least-privilege runtime role edutrack_app
+      GenerateSecretString: { SecretStringTemplate: '{"username":"edutrack_app"}', GenerateStringKey: password, PasswordLength: 32, ExcludePunctuation: true }
+  JwtSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties: { Description: EduTrack JWT signing secret, GenerateSecretString: { PasswordLength: 64, ExcludePunctuation: true } }
+  RegistryKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties: { Description: API key of the SIMULATED Academic Registry, GenerateSecretString: { PasswordLength: 40, ExcludePunctuation: true } }
+  OriginVerifySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties: { Description: Header value proving a request came through CloudFront, GenerateSecretString: { PasswordLength: 40, ExcludePunctuation: true } }
+
+  # ---------- Database ----------
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: { DBSubnetGroupDescription: EduTrack isolated subnets, SubnetIds: [!Ref PrivateSubnetA, !Ref PrivateSubnetB] }
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: postgres
+      EngineVersion: !Ref DbEngineVersion
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: '20'
+      StorageType: gp3
+      StorageEncrypted: true
+      MultiAZ: !If [IsMultiAZ, true, false]
+      DBName: edutrack
+      MasterUsername: edutrack
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DbOwnerSecret}:SecretString:password}}'
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref DbSecurityGroup]
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 7
+      DeletionProtection: false
+
+  # ---------- Object storage ----------
+  FilesBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      VersioningConfiguration: { Status: Enabled }   # "almacenamiento versionado" of the report
+      BucketEncryption: { ServerSideEncryptionConfiguration: [{ ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 } }] }
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true }
+      OwnershipControls: { Rules: [{ ObjectOwnership: BucketOwnerEnforced }] }
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration: { BlockPublicAcls: true, BlockPublicPolicy: true, IgnorePublicAcls: true, RestrictPublicBuckets: true }
+      OwnershipControls: { Rules: [{ ObjectOwnership: BucketOwnerEnforced }] }
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub '${WebBucket.Arn}/*'
+            Condition: { StringEquals: { 'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${Distribution}' } }
+
+  # ---------- Load balancer (only CloudFront may use it: secret header) ----------
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Scheme: internet-facing
+      Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB]
+      SecurityGroups: [!Ref AlbSecurityGroup]
+      LoadBalancerAttributes: [{ Key: routing.http.drop_invalid_header_fields.enabled, Value: 'true' }]
+  ApiTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref Vpc
+      TargetType: ip
+      Protocol: HTTP
+      Port: 3000
+      HealthCheckPath: /api/health/ready
+      HealthCheckIntervalSeconds: 15
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      TargetGroupAttributes: [{ Key: deregistration_delay.timeout_seconds, Value: '30' }]
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions: [{ Type: fixed-response, FixedResponseConfig: { StatusCode: '403', ContentType: text/plain, MessageBody: Forbidden } }]
+  ListenerRuleFromCloudFront:
+    Type: AWS::ElasticLoadBalancingV2::ListenerRule
+    Properties:
+      ListenerArn: !Ref Listener
+      Priority: 1
+      Conditions:
+        - Field: http-header
+          HttpHeaderConfig: { HttpHeaderName: X-Origin-Verify, Values: [!Sub '{{resolve:secretsmanager:${OriginVerifySecret}}}'] }
+      Actions: [{ Type: forward, TargetGroupArn: !Ref ApiTargetGroup }]
+
+  # ---------- CloudFront: SPA from S3, /api/* to the ALB ----------
+  WebOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig: { Name: !Sub '${AWS::StackName}-web', OriginAccessControlOriginType: s3, SigningBehavior: always, SigningProtocol: sigv4 }
+  SecurityHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub '${AWS::StackName}-security'
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            Override: true
+            ContentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data:; frame-src 'self' blob:; media-src 'self' blob:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+          ContentTypeOptions: { Override: true }
+          ReferrerPolicy: { Override: true, ReferrerPolicy: no-referrer }
+          StrictTransportSecurity: { Override: true, AccessControlMaxAgeSec: 31536000 }
+          FrameOptions: { Override: true, FrameOption: DENY }
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Metadata:
+      cfn-lint: { config: { ignore_checks: [W1030] } }   # CertificateArn is only used when DomainName is set
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        DefaultRootObject: index.html
+        Aliases: !If [HasDomain, [!Ref DomainName], !Ref AWS::NoValue]
+        ViewerCertificate: !If
+          - HasDomain
+          - { AcmCertificateArn: !Ref CertificateArn, SslSupportMethod: sni-only, MinimumProtocolVersion: TLSv1.2_2021 }
+          - { CloudFrontDefaultCertificate: true }
+        Origins:
+          - Id: web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !Ref WebOriginAccessControl
+            S3OriginConfig: { OriginAccessIdentity: '' }
+          - Id: api
+            DomainName: !GetAtt LoadBalancer.DNSName
+            CustomOriginConfig: { OriginProtocolPolicy: http-only, OriginReadTimeout: 60 }
+            OriginCustomHeaders: [{ HeaderName: X-Origin-Verify, HeaderValue: !Sub '{{resolve:secretsmanager:${OriginVerifySecret}}}' }]
+        DefaultCacheBehavior:
+          TargetOriginId: web
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6          # Managed-CachingOptimized
+          ResponseHeadersPolicyId: !Ref SecurityHeaders
+          Compress: true
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad        # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # Managed-AllViewerExceptHostHeader
+            Compress: true
+
+  # ---------- ECS ----------
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties: { ClusterSettings: [{ Name: containerInsights, Value: disabled }] }
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties: { LogGroupName: !Sub '/edutrack/${AWS::StackName}', RetentionInDays: 14 }
+  ServiceNamespace:
+    Type: AWS::ServiceDiscovery::PrivateDnsNamespace
+    Properties: { Name: edutrack.local, Vpc: !Ref Vpc }
+  RegistryDiscovery:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: registry
+      NamespaceId: !Ref ServiceNamespace
+      DnsConfig: { DnsRecords: [{ Type: A, TTL: 10 }] }
+      HealthCheckCustomConfig: { FailureThreshold: 1 }
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: { Statement: [{ Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }] }
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy]
+      Policies:
+        - PolicyName: read-secrets
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: [!Ref DbOwnerSecret, !Ref AppDbSecret, !Ref JwtSecret, !Ref RegistryKeySecret]
+  ApiTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: { Statement: [{ Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: sts:AssumeRole }] }
+      Policies:
+        - PolicyName: files-bucket
+          PolicyDocument:
+            Statement:
+              - { Effect: Allow, Action: [s3:GetObject, s3:PutObject, s3:DeleteObject], Resource: !Sub '${FilesBucket.Arn}/*' }
+              - { Effect: Allow, Action: s3:ListBucket, Resource: !GetAtt FilesBucket.Arn }
+
+  ApiTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${AWS::StackName}-api'
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '256'
+      Memory: '1024'
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt ApiTaskRole.Arn
+      ContainerDefinitions:
+        # Runs first in every task: versioned migrations with the OWNER, then (re)provision of the least-privilege role.
+        - Name: migrate
+          Image: !Ref ApiImageUri
+          Essential: false
+          Command:
+            - sh
+            - -c
+            - >-
+              OWNER="postgresql://edutrack:$DB_OWNER_PASSWORD@$DB_HOST:5432/edutrack" &&
+              DATABASE_URL="$OWNER?sslmode=require" npm run db:migrate -w @edutrack/api &&
+              DATABASE_URL="$OWNER?sslmode=verify-full&sslrootcert=/app/certs/rds-global-bundle.pem" node apps/api/scripts/provision-app-role.mjs
+          Environment: [{ Name: DB_HOST, Value: !GetAtt Database.Endpoint.Address }]
+          Secrets:
+            - { Name: DB_OWNER_PASSWORD, ValueFrom: !Sub '${DbOwnerSecret}:password::' }
+            - { Name: APP_DB_PASSWORD, ValueFrom: !Sub '${AppDbSecret}:password::' }
+          LogConfiguration: { LogDriver: awslogs, Options: { awslogs-group: !Ref LogGroup, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: migrate } }
+        # The API connects as edutrack_app (no ownership, no UPDATE/DELETE on audit), TLS verified against the RDS CA.
+        - Name: api
+          Image: !Ref ApiImageUri
+          Essential: true
+          DependsOn: [{ ContainerName: migrate, Condition: SUCCESS }]
+          PortMappings: [{ ContainerPort: 3000, Protocol: tcp }]
+          Command:
+            - sh
+            - -c
+            - >-
+              export DATABASE_URL="postgresql://edutrack_app:$APP_DB_PASSWORD@$DB_HOST:5432/edutrack?sslmode=verify-full&sslrootcert=/app/certs/rds-global-bundle.pem" &&
+              exec node apps/api/dist/main.js
+          Environment:
+            - { Name: NODE_ENV, Value: production }
+            - { Name: PORT, Value: '3000' }
+            - { Name: DB_HOST, Value: !GetAtt Database.Endpoint.Address }
+            - { Name: DB_POOL_MAX, Value: !Ref DbPoolMax }
+            - { Name: WEB_ORIGIN, Value: !If [HasDomain, !Sub 'https://${DomainName}', !Sub 'https://${Distribution.DomainName}'] }
+            - { Name: TRUST_PROXY, Value: !Ref TrustProxy }
+            - { Name: STORAGE_DRIVER, Value: s3 }
+            - { Name: S3_ENDPOINT, Value: !Sub 'https://s3.${AWS::Region}.amazonaws.com' }
+            - { Name: S3_BUCKET, Value: !Ref FilesBucket }
+            - { Name: S3_REGION, Value: !Ref AWS::Region }
+            - { Name: REGISTRY_URL, Value: 'http://registry.edutrack.local:4010' }
+            - { Name: REGISTRY_RETRY_BASE_MS, Value: '2000' }
+            - { Name: AUDIT_ANCHOR_INTERVAL_MS, Value: '600000' }
+            - { Name: ALERT_INTERVAL_MS, Value: '60000' }
+          Secrets:
+            - { Name: APP_DB_PASSWORD, ValueFrom: !Sub '${AppDbSecret}:password::' }
+            - { Name: JWT_SECRET, ValueFrom: !Ref JwtSecret }
+            - { Name: REGISTRY_API_KEY, ValueFrom: !Ref RegistryKeySecret }
+          LogConfiguration: { LogDriver: awslogs, Options: { awslogs-group: !Ref LogGroup, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: api } }
+  ApiService:
+    Type: AWS::ECS::Service
+    DependsOn: ListenerRuleFromCloudFront
+    Properties:
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: !Ref ApiDesiredCount
+      TaskDefinition: !Ref ApiTaskDefinition
+      HealthCheckGracePeriodSeconds: 240
+      DeploymentConfiguration: { MinimumHealthyPercent: 50, MaximumPercent: 200, DeploymentCircuitBreaker: { Enable: true, Rollback: true } }
+      NetworkConfiguration:
+        AwsvpcConfiguration: { AssignPublicIp: ENABLED, Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB], SecurityGroups: [!Ref ApiSecurityGroup] }
+      LoadBalancers: [{ ContainerName: api, ContainerPort: 3000, TargetGroupArn: !Ref ApiTargetGroup }]
+
+  RegistryTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${AWS::StackName}-registry'
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '256'
+      Memory: '512'
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: registry
+          Image: !Ref RegistryImageUri
+          Essential: true
+          PortMappings: [{ ContainerPort: 4010, Protocol: tcp }]
+          Environment: [{ Name: PORT, Value: '4010' }]
+          Secrets: [{ Name: REGISTRY_API_KEY, ValueFrom: !Ref RegistryKeySecret }]
+          LogConfiguration: { LogDriver: awslogs, Options: { awslogs-group: !Ref LogGroup, awslogs-region: !Ref AWS::Region, awslogs-stream-prefix: registry } }
+  RegistryService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: 1
+      TaskDefinition: !Ref RegistryTaskDefinition
+      ServiceRegistries: [{ RegistryArn: !GetAtt RegistryDiscovery.Arn }]
+      NetworkConfiguration:
+        AwsvpcConfiguration: { AssignPublicIp: ENABLED, Subnets: [!Ref PublicSubnetA, !Ref PublicSubnetB], SecurityGroups: [!Ref RegistrySecurityGroup] }
+
+Outputs:
+  SiteUrl:
+    Description: Public HTTPS URL of EduTrack
+    Value: !If [HasDomain, !Sub 'https://${DomainName}', !Sub 'https://${Distribution.DomainName}']
+  WebBucketName:
+    Value: !Ref WebBucket
+  FilesBucketName:
+    Value: !Ref FilesBucket
+  DistributionId:
+    Value: !Ref Distribution
+  ClusterName:
+    Value: !Ref Cluster
+  ApiTaskDefinitionArn:
+    Value: !Ref ApiTaskDefinition
+  TaskSubnets:
+    Value: !Sub '${PublicSubnetA},${PublicSubnetB}'
+  ApiSecurityGroupId:
+    Value: !Ref ApiSecurityGroup
+  LogGroupName:
+    Value: !Ref LogGroup
