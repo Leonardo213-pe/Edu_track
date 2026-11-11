@@ -28,6 +28,7 @@ export const questionTypes: Record<QuestionType, string> = { SINGLE: 'Opción ú
 export const points = (cents: number) => (cents / 100).toLocaleString('es-PE', { maximumFractionDigits: 2 });
 
 const messages: Record<string, string> = {
+  SYNC_IN_PROGRESS: 'Ya hay una sincronización en curso. Espera a que termine.', REGISTRY_NOT_CONFIGURED: 'El Registro Académico no está configurado en este entorno.',
   INVALID_INPUT: 'Revisa los datos ingresados.', FORBIDDEN: 'No tienes permiso para esta acción.', NOT_FOUND: 'El recurso no existe.',
   CONFLICT: 'Los datos cambiaron. Recarga antes de guardar.', INVALID_STATE: 'El estado de la evaluación no permite este cambio.',
   WEIGHT_EXCEEDED: 'La suma de pesos del curso superaría el 100 %.', INSUFFICIENT_QUESTIONS: 'El banco no tiene suficientes preguntas activas.',

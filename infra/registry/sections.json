@@ -1,0 +1,14 @@
+{
+  "_comment": "SIMULADO: estudiantes ficticios del Registro Académico de demostración. No son personas reales.",
+  "sections": [
+    { "code": "IS-301", "period": "2026-II", "students": [
+      { "email": "ana.quispe@alumnos.edutrack.test", "code": "20260001", "name": "Ana Quispe (ficticia)" },
+      { "email": "bruno.huaman@alumnos.edutrack.test", "code": "20260002", "name": "Bruno Huamán (ficticio)" },
+      { "email": "carla.rojas@alumnos.edutrack.test", "code": "20260003", "name": "Carla Rojas (ficticia)" }
+    ] },
+    { "code": "MA-101", "period": "2026-II", "students": [
+      { "email": "ana.quispe@alumnos.edutrack.test", "code": "20260001", "name": "Ana Quispe (ficticia)" },
+      { "email": "diego.salas@alumnos.edutrack.test", "code": "20260004", "name": "Diego Salas (ficticio)" }
+    ] }
+  ]
+}

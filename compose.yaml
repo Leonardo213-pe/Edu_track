@@ -30,6 +30,9 @@ services:
       COURSE_STORAGE_ROOT: /app/storage/courses
       # Only Nginx (private Compose network) may set X-Forwarded-For; rate limits then apply per real client.
       TRUST_PROXY: uniquelocal
+      # SIMULADO: Registro Académico de demostración (servicio "registry"), consumido por el adaptador REST de enrollments.
+      REGISTRY_URL: http://registry:4010
+      REGISTRY_API_KEY: ${REGISTRY_API_KEY:?Run npm run setup:env or add REGISTRY_API_KEY to .env}
     volumes:
       - course_files:/app/storage
     ports: ["127.0.0.1:${PORT:-3000}:3000"]
@@ -56,6 +59,16 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
+  # SIMULADO: Registro Académico institucional de mentira (no forma parte del LMS). Modo caída: PUT /admin/mode.
+  registry:
+    build:
+      context: .
+      dockerfile: infra/registry.Dockerfile
+    environment:
+      REGISTRY_API_KEY: ${REGISTRY_API_KEY:?Run npm run setup:env or add REGISTRY_API_KEY to .env}
+      REGISTRY_MODE: ${REGISTRY_MODE:-up}
+    ports: ["127.0.0.1:4010:4010"]
     restart: unless-stopped
   mailpit:
     image: axllent/mailpit:v1.27

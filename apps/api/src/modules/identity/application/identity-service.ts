@@ -78,11 +78,13 @@ export class IdentityService implements IdentityDirectory {
     const normalized = this.bounded(emails).flatMap(email => { try { return [normalizeEmail(email)]; } catch { return []; } });
     return normalized.length ? (await this.users.findManyByEmails(normalized)).map(user => this.entry(user)) : [];
   }
-  async listInstructors(): Promise<{ id: string; displayName: string }[]> {
+  listInstructors(): Promise<{ id: string; displayName: string }[]> { return this.activeWithRole('TEACHER'); }
+  listAdministrators(): Promise<{ id: string; displayName: string }[]> { return this.activeWithRole('ADMIN'); }
+  private async activeWithRole(role: Role): Promise<{ id: string; displayName: string }[]> {
     const result: { id: string; displayName: string }[] = [];
     for (let offset = 0; ; offset += 100) {
       const page = await this.users.list(100, offset);
-      result.push(...page.filter(user => user.active && user.role === 'TEACHER').map(user => ({ id: user.id, displayName: user.displayName })));
+      result.push(...page.filter(user => user.active && user.role === role).map(user => ({ id: user.id, displayName: user.displayName })));
       if (page.length < 100) return result;
     }
   }

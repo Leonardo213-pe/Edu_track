@@ -21,6 +21,8 @@ export interface CourseIdentity {
 export interface CourseEnrollment {
   has(userId: string, courseId: string): Promise<boolean>;
   courses(userId: string): Promise<string[]>;
+  /** Reports the Academic Registry section (code + period) of the course to enrollments (CAR-09); idempotent. */
+  link(courseId: string, code: string, period: string): Promise<void>;
 }
 export interface FileInput { bytes: Uint8Array; filename: string; mimeType: string }
 export interface StoredFile { key: string; filename: string; mimeType: string; size: number; sha256: string }

@@ -318,6 +318,35 @@ model EnrollmentRun {
   @@map("runs")
   @@schema("enrollments")
 }
+// Part A: registry section linked to each course and nightly synchronization runs (CAR-09).
+model RegistrySection {
+  courseId String @id @db.Uuid
+  code String @db.VarChar(40)
+  period String @db.VarChar(40)
+  updatedAt DateTime @db.Timestamptz(3)
+  @@index([code, period])
+  @@map("sections")
+  @@schema("enrollments")
+}
+model RegistrySyncRun {
+  id String @id @db.Uuid
+  trigger String @db.VarChar(10)
+  slot String? @unique(map: "sync_runs_slot_key") @db.VarChar(40)
+  actorId String @db.Uuid
+  status String @db.VarChar(10)
+  startedAt DateTime @db.Timestamptz(3)
+  finishedAt DateTime? @db.Timestamptz(3)
+  sections Int @default(0)
+  added Int @default(0)
+  removed Int @default(0)
+  unknown Int @default(0)
+  skipped Int @default(0)
+  retries Int @default(0)
+  error String? @db.VarChar(200)
+  @@index([startedAt])
+  @@map("sync_runs")
+  @@schema("enrollments")
+}
 
 enum CourseStatus {
   BORRADOR

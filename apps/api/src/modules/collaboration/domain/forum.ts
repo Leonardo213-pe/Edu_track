@@ -28,7 +28,7 @@ export interface MessagePosted {
   readonly authorId: string; readonly excerpt: string; readonly newThread: boolean; readonly postedAt: string;
 }
 export interface NotificationDraft {
-  readonly userId: string; readonly type: 'FORUM_REPLY' | 'FORUM_NEW_THREAD' | 'DUE_SOON' | 'GRADE'; readonly title: string; readonly body: string;
+  readonly userId: string; readonly type: 'FORUM_REPLY' | 'FORUM_NEW_THREAD' | 'DUE_SOON' | 'GRADE' | 'SYSTEM_ALERT' | 'SUBMISSION'; readonly title: string; readonly body: string;
   readonly link: Record<string, string>; readonly dedupeKey?: string;
 }
 export interface ThreadSubscriber { update(event: MessagePosted): NotificationDraft[] }

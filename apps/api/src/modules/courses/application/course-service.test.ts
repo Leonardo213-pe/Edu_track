@@ -29,7 +29,7 @@ beforeEach(() => {
   let id = 0;
   service = new CourseService(repo, { find: async actorId => principals.get(actorId) ?? null, teachers: async () => [{ id: teacher.id, displayName: 'Docente' }],
     names: async ids => new Map(ids.filter(item => principals.has(item)).map(item => [item, `Nombre ${item}`])) },
-  { has: async () => enroll, courses: async () => enroll ? [...store.keys()] : [] }, storage, { id: () => `id-${++id}`, now: () => '2026-11-11T00:00:00Z' });
+  { has: async () => enroll, courses: async () => enroll ? [...store.keys()] : [], link: async () => undefined }, storage, { id: () => `id-${++id}`, now: () => '2026-11-11T00:00:00Z' });
 });
 async function prepare() {
   await service.edit(teacher.id, 'course', course.data.revision, { ...course.data, syllabus: 'Sílabo' }); await service.unit(teacher.id, 'course', course.data.revision, 'Unidad');

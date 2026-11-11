@@ -18,6 +18,8 @@ export interface DirectoryEntry {
 }
 export interface IdentityDirectory {
   listInstructors(): Promise<{ id: string; displayName: string }[]>;
+  /** Active administrators (operational alerts such as registry failures or monitoring thresholds). */
+  listAdministrators(): Promise<{ id: string; displayName: string }[]>;
   /** Up to 1000 IDs; unknown IDs are omitted. */
   findUsers(ids: readonly string[]): Promise<DirectoryEntry[]>;
   /** Up to 1000 emails, normalized; unknown or malformed emails are omitted. */

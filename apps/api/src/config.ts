@@ -8,6 +8,22 @@ export interface AppConfig {
   examJobIntervalMs?: number;
   /** Period of the due-date reminder job; default 300000 ms. */
   reminderIntervalMs?: number;
+  /** Academic Registry (SIMULATED in local Compose); without url/key the nightly synchronization stays idle. */
+  registry?: { url?: string; apiKey?: string; retryBaseMs?: number; schedulerIntervalMs?: number };
+  /** Period of the operational alert check (administration); default 60000 ms. */
+  alertIntervalMs?: number;
+}
+function positive(value: string | undefined, name: string): number | undefined {
+  if (value === undefined || value.trim() === '') return undefined;
+  const parsed = Number(value); if (!Number.isInteger(parsed) || parsed < 1) throw new Error(`Invalid ${name}`); return parsed;
+}
+export function parseRegistry(env: NodeJS.ProcessEnv): AppConfig['registry'] {
+  const url = env.REGISTRY_URL?.trim() || undefined; const apiKey = env.REGISTRY_API_KEY?.trim() || undefined;
+  if (!!url !== !!apiKey) throw new Error('REGISTRY_URL and REGISTRY_API_KEY must be set together');
+  if (url && !['http:', 'https:'].includes(new URL(url).protocol)) throw new Error('Invalid REGISTRY_URL');
+  if (apiKey && apiKey.length < 16) throw new Error('REGISTRY_API_KEY requires at least 16 characters');
+  return { url, apiKey, retryBaseMs: positive(env.REGISTRY_RETRY_BASE_MS, 'REGISTRY_RETRY_BASE_MS'),
+    schedulerIntervalMs: positive(env.REGISTRY_SCHEDULER_INTERVAL_MS, 'REGISTRY_SCHEDULER_INTERVAL_MS') };
 }
 export function parseTrustProxy(value: string | undefined): AppConfig['trustProxy'] {
   if (value === undefined || value.trim() === '') return undefined;
@@ -39,6 +55,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (env.ALLOW_TEST_ENROLLMENTS === 'true' || env.ENROLLMENT_FIXTURES_FILE?.trim())
     throw new Error('Enrollment JSON fixtures were removed; synchronize the official roster through /api/enrollments');
   return { databaseUrl, jwtSecret, port, webOrigin, trustProxy: parseTrustProxy(env.TRUST_PROXY),
-    academic: { storageRoot: env.COURSE_STORAGE_ROOT },
+    academic: { storageRoot: env.COURSE_STORAGE_ROOT }, registry: parseRegistry(env),
+    alertIntervalMs: positive(env.ALERT_INTERVAL_MS, 'ALERT_INTERVAL_MS'),
     mail: { host, port: smtpPort, from, secure, requireTLS, user: env.SMTP_USER, password: env.SMTP_PASSWORD, webOrigin } };
 }

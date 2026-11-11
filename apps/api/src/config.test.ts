@@ -15,4 +15,13 @@ describe('runtime configuration', () => {
     expect(loadConfig({ ...base, ALLOW_TEST_ENROLLMENTS: 'false' }).academic).toEqual({ storageRoot: undefined });
     expect(() => loadConfig({ ...base, JWT_SECRET: 'short' })).toThrow('JWT_SECRET');
   });
+  it('configures the (SIMULATED) Academic Registry only with a URL and a strong key together', () => {
+    expect(loadConfig(base).registry).toEqual({ url: undefined, apiKey: undefined, retryBaseMs: undefined, schedulerIntervalMs: undefined });
+    expect(loadConfig({ ...base, REGISTRY_URL: 'http://registry:4010', REGISTRY_API_KEY: 'k'.repeat(16), REGISTRY_RETRY_BASE_MS: '50', ALERT_INTERVAL_MS: '1000' }))
+      .toMatchObject({ registry: { url: 'http://registry:4010', retryBaseMs: 50 }, alertIntervalMs: 1000 });
+    expect(() => loadConfig({ ...base, REGISTRY_URL: 'http://registry:4010' })).toThrow('set together');
+    expect(() => loadConfig({ ...base, REGISTRY_URL: 'ftp://registry', REGISTRY_API_KEY: 'k'.repeat(16) })).toThrow('Invalid REGISTRY_URL');
+    expect(() => loadConfig({ ...base, REGISTRY_URL: 'http://registry', REGISTRY_API_KEY: 'short' })).toThrow('16 characters');
+    expect(() => loadConfig({ ...base, REGISTRY_RETRY_BASE_MS: '-1' })).toThrow('REGISTRY_RETRY_BASE_MS');
+  });
 });

@@ -1,6 +1,6 @@
 export const NOTIFICATION_SENDER = Symbol('NOTIFICATION_SENDER');
 export interface NotificationRequest {
-  readonly userId: string; readonly type: 'GRADE'; readonly title: string; readonly body: string;
+  readonly userId: string; readonly type: 'GRADE' | 'SYSTEM_ALERT' | 'SUBMISSION'; readonly title: string; readonly body: string;
   readonly link: Readonly<Record<string, string>>; readonly dedupeKey?: string;
 }
 /**

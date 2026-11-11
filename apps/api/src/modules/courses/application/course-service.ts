@@ -93,18 +93,21 @@ export class CourseService implements CourseCatalog {
     if (actor.role === 'TEACHER' && input.teacherId !== actor.id) throw new CourseError('FORBIDDEN');
     if ((await this.identity.find(input.teacherId))?.role !== 'TEACHER') throw new CourseError('INVALID_INPUT');
     const course = Course.create({ ...input, id: this.clock.id(), createdAt: this.clock.now() }, actor.id);
-    await this.repo.create(course); return this.get(userId, course.data.id);
+    await this.repo.create(course);
+    await this.enrollments.link(course.data.id, course.data.code, course.data.period);
+    return this.get(userId, course.data.id);
   }
   private async change(userId: string, id: string, revision: number, work: (course: Course, actor: Actor) => Promise<void>) {
     if (!Number.isInteger(revision) || revision < 0) throw new CourseError('INVALID_INPUT');
     await this.repo.mutate(id, revision, async course => { const actor = await this.actor(userId); await work(course, actor); });
     return this.get(userId, id);
   }
-  edit(userId: string, id: string, revision: number, input: CourseEdit) {
-    return this.change(userId, id, revision, async (course, actor) => {
+  async edit(userId: string, id: string, revision: number, input: CourseEdit) {
+    const view = await this.change(userId, id, revision, async (course, actor) => {
       if ((await this.identity.find(input.teacherId))?.role !== 'TEACHER') throw new CourseError('INVALID_INPUT');
       course.edit(actor, input);
     });
+    await this.enrollments.link(id, view.code, view.period); return view;
   }
   unit(userId: string, id: string, revision: number, title: string, unitId?: string) {
     return this.change(userId, id, revision, async (course, actor) => unitId ? course.editUnit(actor, unitId, title) : course.addUnit(actor, this.clock.id(), title));

@@ -5,7 +5,7 @@ import { IDENTITY_DIRECTORY, type IdentityDirectory } from '../../../identity/pu
 import { EnrollmentService } from '../../application/enrollment-service';
 import { EnrollmentError, MAX_ROSTER } from '../../domain/enrollment';
 
-type EnrollmentRequest = Request & { enrollmentUserId: string };
+export type EnrollmentRequest = Request & { enrollmentUserId: string };
 @Injectable()
 export class EnrollmentAuthGuard implements CanActivate {
   constructor(@Inject(IDENTITY_DIRECTORY) private readonly identity: IdentityDirectory) {}
@@ -19,7 +19,7 @@ export class EnrollmentAuthGuard implements CanActivate {
 @Catch(EnrollmentError)
 export class EnrollmentErrorFilter implements ExceptionFilter {
   catch(error: EnrollmentError, host: ArgumentsHost) {
-    const status = error.code === 'FORBIDDEN' ? 403 : 400;
+    const status = error.code === 'FORBIDDEN' ? 403 : error.code === 'SYNC_IN_PROGRESS' ? 409 : error.code === 'REGISTRY_NOT_CONFIGURED' ? 503 : 400;
     host.switchToHttp().getResponse<Response>().status(status).json({ statusCode: status, code: error.code,
       ...(error.code === 'UNKNOWN_STUDENTS' ? { unknown: error.details } : {}) });
   }

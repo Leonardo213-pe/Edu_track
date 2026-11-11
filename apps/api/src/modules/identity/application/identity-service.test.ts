@@ -94,6 +94,7 @@ describe('identity application with explicit ports', () => {
     await expect(service.findUsers(Array.from({ length: 1001 }, (_, index) => `id-${index}`))).rejects.toThrow('INVALID_INPUT');
     users.set('teacher', new User('teacher', 'teacher@example.test', 'Docente', 'hash', 'TEACHER', now));
     expect(await service.listInstructors()).toEqual([{ id: 'teacher', displayName: 'Docente' }]);
+    expect((await service.listAdministrators()).every(user => typeof user.id === 'string')).toBe(true);
   });
   it('bounds user and security-event pagination', async () => {
     expect(await service.listUsers(admin)).toHaveLength(2); expect(await service.securityEvents(admin)).toEqual([]);

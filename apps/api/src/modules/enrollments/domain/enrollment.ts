@@ -1,5 +1,5 @@
 export class EnrollmentError extends Error {
-  constructor(readonly code: 'INVALID_INPUT' | 'FORBIDDEN' | 'UNKNOWN_STUDENTS', readonly details: readonly string[] = []) { super(code); }
+  constructor(readonly code: 'INVALID_INPUT' | 'FORBIDDEN' | 'UNKNOWN_STUDENTS' | 'SYNC_IN_PROGRESS' | 'REGISTRY_NOT_CONFIGURED', readonly details: readonly string[] = []) { super(code); }
 }
 export interface RosterEntry { readonly studentId: string; readonly active: boolean }
 export interface Reconciliation { readonly activate: readonly string[]; readonly deactivate: readonly string[]; readonly unchanged: number; readonly total: number }
