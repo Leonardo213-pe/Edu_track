@@ -11,6 +11,9 @@ export class EnrollmentService implements EnrollmentAccess {
 
   isEnrolled(studentId: string, courseId: string): Promise<boolean> { return this.repo.isEnrolled(studentId, courseId); }
   coursesOf(studentId: string): Promise<string[]> { return this.repo.activeCourses(studentId); }
+  async studentsOf(courseId: string): Promise<string[]> {
+    return (await this.repo.roster(courseId)).filter(entry => entry.active).map(entry => entry.studentId);
+  }
 
   private async administrator(actorId: string): Promise<void> {
     const [actor] = await this.directory.byIds([actorId]);

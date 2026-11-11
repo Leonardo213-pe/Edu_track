@@ -7,6 +7,9 @@ import helmet from 'helmet';
 import { IdentityModule, IDENTITY_READINESS } from './modules/identity/identity.module';
 import { EnrollmentsModule } from './modules/enrollments/enrollments.module';
 import { CoursesModule } from './modules/courses/courses.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { AssessmentsModule } from './modules/assessments/assessments.module';
+import { GradingModule } from './modules/grading/grading.module';
 import type { AppConfig } from './config';
 
 @Controller('health')
@@ -23,8 +26,11 @@ class AppModule {
   static register(config: AppConfig): DynamicModule {
     const identity = IdentityModule.register(config);
     const enrollments = EnrollmentsModule.register(identity, { databaseUrl: config.databaseUrl });
-    return { module: AppModule, imports: [identity, enrollments,
-      CoursesModule.register(identity, enrollments, { databaseUrl: config.databaseUrl, storageRoot: config.academic?.storageRoot }),
+    const courses = CoursesModule.register(identity, enrollments, { databaseUrl: config.databaseUrl, storageRoot: config.academic?.storageRoot });
+    const assessments = AssessmentsModule.register(identity, enrollments, courses, { databaseUrl: config.databaseUrl });
+    return { module: AppModule, imports: [identity, enrollments, courses, assessments,
+      GradingModule.register(identity, enrollments, courses, assessments, { databaseUrl: config.databaseUrl }),
+      AuditModule.register(identity, { databaseUrl: config.databaseUrl }),
       ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }])],
       controllers: [HealthController], providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }] };
   }

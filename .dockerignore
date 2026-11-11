@@ -8,8 +8,6 @@ node_modules
 tmp
 coverage
 **/coverage
-apps/api/src/modules/identity/infrastructure/persistence/generated
-apps/api/src/modules/courses/infrastructure/persistence/generated
-apps/api/src/modules/enrollments/infrastructure/persistence/generated
 storage
 docs/Informe_Trabajo_Final_EduTrack_LMS.pdf
+apps/api/src/modules/*/infrastructure/persistence/generated
