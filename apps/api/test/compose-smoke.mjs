@@ -1,8 +1,7 @@
-// Real CLI + running Compose HTTP + PostgreSQL. Creates and removes only its own users.
+// Running Compose HTTP + PostgreSQL. Creates and removes only its own users.
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { config } from 'dotenv';
 import pg from 'pg';
 config({ path: new URL('../../../.env', import.meta.url), quiet: true });
@@ -13,6 +12,10 @@ const ids = [];
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const email = `smoke-${randomUUID()}@example.test`;
 const password = randomBytes(24).toString('hex');
+const require = createRequire(import.meta.url);
+const { PrismaUserRepository } = require('../dist/modules/identity/infrastructure/persistence/prisma-user-repository.js');
+const { ScryptPasswordHasher } = require('../dist/modules/identity/infrastructure/security/scrypt-password-hasher.js');
+const { User } = require('../dist/modules/identity/domain/user.js');
 async function call(path, token, body, expected = 200) {
   const response = await fetch(`${base}/api/${path}`, { method: body ? 'POST' : 'GET',
     headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -23,10 +26,10 @@ async function call(path, token, body, expected = 200) {
 try {
   const home = await fetch(base); assert.equal(home.status, 200); assert.match(await home.text(), /EduTrack/);
   await call('health/ready');
-  const provision = spawnSync(process.execPath, [fileURLToPath(new URL('../dist/modules/identity/infrastructure/cli/create-user.js', import.meta.url)),
-    email, 'Smoke admin', 'ADMIN'], { input: password, encoding: 'utf8', env: process.env });
-  assert.equal(provision.status, 0, 'CLI provisioning failed');
-  const admin = JSON.parse(provision.stdout.trim()); ids.push(admin.id);
+  const repository = new PrismaUserRepository(process.env.DATABASE_URL, process.env.JWT_SECRET);
+  const admin = new User(randomUUID(), email, 'Smoke admin', await new ScryptPasswordHasher().hash(password), 'ADMIN', new Date());
+  ids.push(admin.id);
+  try { await repository.create(admin); } finally { await repository.onModuleDestroy(); }
   const session = await call('identity/login', undefined, { email, password });
   assert.equal(session.user.id, admin.id); assert.equal(session.user.role, 'ADMIN');
   const profile = await call('identity/me', session.accessToken); assert.equal(profile.email, email);
@@ -38,7 +41,9 @@ try {
   assert.ok(students.some(user => user.id === student.id));
   const studentSession = await call('identity/login', undefined, { email: newEmail, password });
   await call('identity/users', studentSession.accessToken, undefined, 403);
-  console.log('Compose smoke passed: SPA, readiness, CLI, login, profile, user creation/list and role denial.');
+  const logout = await fetch(`${base}/api/identity/logout`, { method: 'POST', headers: { Authorization: `Bearer ${studentSession.accessToken}` } });
+  assert.equal(logout.status, 204); await call('identity/me', studentSession.accessToken, undefined, 401);
+  console.log('Compose smoke passed: SPA, readiness, login, profile, user creation/list, role denial and server logout.');
 } finally {
   await pool.query('DELETE FROM identity.users WHERE id = ANY($1::uuid[])', [ids]);
   await pool.end();

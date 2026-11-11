@@ -2,7 +2,7 @@
 
 ## Vista lógica
 
-Identidad actual: User protege email/nombre/rol y produce UserProfile. IdentityService coordina repositorio/hash/token por puertos. Cada módulo futuro posee su modelo; no se comparte una entidad User global con Prisma.
+Identidad actual: User protege email/nombre/rol/estado/versión y produce UserProfile. IdentityService coordina repositorio transaccional/hash/token/sesiones/recuperación por puertos. El SMTP sale desde un consumidor interno del outbox de recuperación. Cada módulo futuro posee su modelo; no se comparte una entidad User global con Prisma. Detalle de fase 2 en ADR-005 y el contrato de API.
 
 ```mermaid
 classDiagram
@@ -103,7 +103,7 @@ Producción futura requiere HTTPS/TLS ≥1.2, varias réplicas del mismo backend
 
 | Escenario | Estado | Vistas / evidencia |
 | --- | --- | --- |
-| CU-13, alta y consulta por ADMIN | Incremento funcional | User, puertos, HTTP/CLI, Prisma/PostgreSQL; tests HTTP/DB y UI |
+| CU-13, administración de identidad | Fase 2 funcional | Alta/edición/roles/estado/perfil, sesiones revocables, contraseñas y correo, eventos; PostgreSQL/SMTP reales y UI |
 | CU-03, examen con desconexión | Pendiente | Intento/snapshot, procesos de ACK/reenvío, almacenamiento durable; EAC-01/03 |
 | CU-08, cambio de nota | Pendiente | Strategy, transacción nota/auditoría, tabla append-only; EAC-04 |
 | CU-10, aprobación | Pendiente | State y versión revisada, contrato review/courses; EAC-05 |

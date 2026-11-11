@@ -4,8 +4,9 @@ Cada etapa termina con build, pruebas de permisos/invariantes, integración real
 
 | Etapa | Alcance | Criterio de salida |
 | --- | --- | --- |
-| 0: base, actual | Fuente analizada; límites de 14 módulos; identidad de alta/acceso/consulta; SPA; PostgreSQL; Compose; CI | Build, cobertura núcleo ≥80%, autorización HTTP/casos de uso y persistencia real comprobadas; limitaciones declaradas |
-| 1: identidad restante y cursos | Baja/rol/cambio de contraseña con invariantes; CAR-01, CU-06: sílabo, unidades, sesiones | Propiedad por docente y sección, dominio puro, edición concurrente y ausencia de acceso estudiantil a borrador |
+| 0: base, terminada | Fuente analizada; límites de 14 módulos; identidad inicial; SPA; PostgreSQL; Compose; CI | Base compilada y probada; ver verificación histórica |
+| Fase 2: identidad, actual | CAR-13: alta/edición, roles/estado, perfil, sesiones revocables, contraseñas, correo real, eventos | PostgreSQL/SMTP reales, permisos de cuatro roles, protección concurrente del último ADMIN, tests de arquitectura y pantallas conectadas |
+| 1: cursos, pendiente | CAR-01, CU-06: sílabo, unidades, sesiones | Propiedad por docente y sección, dominio puro, edición concurrente y ausencia de acceso estudiantil a borrador |
 | 2: contenido y revisión | CAR-02/03, CU-02/10; versiones, Borrador/En revisión/Publicado/Archivado | Solo diseñador aprueba versión válida; estudiantes ven solo publicado y matriculado; almacenamiento probado |
 | 3: banco y calificación | CAR-04/06; CU-07/08; preguntas/snapshots, Strategy, rúbricas/pesos; base de auditoría CAR-12 | Soluciones nunca en DTO estudiantil, reglas de redondeo acordadas, nota/auditoría atómicas y auditoría inalterable |
 | 4: exámenes críticos | CU-03, CAR-11, EAC-01/02/03; intentos, tiempo servidor, autoguardado, reconexión, finalización | Idempotencia/reordenamiento/vencimiento, sin pérdida de ACK; carga y failover en entorno representativo; no certificar por unit tests |

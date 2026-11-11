@@ -1,6 +1,6 @@
 # EduTrack LMS
 
-Primera entrega: base de **arquitectura hexagonal y monolito modular** con identidad operativa. Un backend NestJS, frontend React y PostgreSQL; Prisma permanece dentro del adaptador. No hay integraciones externas activas ni funcionalidades académicas simuladas.
+Fase 2: **autenticación, usuarios y roles** sobre arquitectura hexagonal y monolito modular. Un backend NestJS, frontend React y PostgreSQL; Prisma permanece dentro del adaptador. Identidad incluye sesiones revocables, administración, recuperación/cambio de contraseña y eventos de seguridad. El correo usa SMTP real; no hay funcionalidades académicas simuladas.
 
 ## Requisitos y decisiones
 
@@ -53,14 +53,14 @@ printf '%s' "$initial_password" | npm run user:create -- admin@institucion.edu.p
 unset initial_password
 ```
 
-La CLI es una herramienta privilegiada para el operador con acceso al entorno. No es un endpoint sin autenticación. Las altas posteriores se hacen desde el panel como administrador. Roles: `STUDENT`, `TEACHER`, `INSTRUCTIONAL_DESIGNER`, `ADMIN`. Conservar la contraseña inicial por un canal institucional seguro; cambio/recuperación/autoservicio están pendientes.
+La CLI solo crea el **primer ADMIN si no hay administrador activo**; no permite saltarse la administración existente. Las altas posteriores se hacen desde el panel como administrador. Roles: `STUDENT`, `TEACHER`, `INSTRUCTIONAL_DESIGNER`, `ADMIN`. Cada usuario puede cambiar su contraseña o recuperar el acceso por correo. Conservar la contraseña inicial por un canal institucional seguro.
 
 ## Desarrollo local
 
 ```sh
 npm ci
 npm run setup:env  # una sola vez
-docker compose up -d db --wait
+docker compose up -d db mailpit --wait
 npm run generate
 npm run db:migrate
 npm run build
@@ -81,6 +81,9 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | `POSTGRES_PORT` | Puerto local DB (5432); si cambia, ajustar también `DATABASE_URL` |
 | `PORT`, `WEB_PORT` | API (3000) y frontend Compose (8080) |
 | `WEB_ORIGIN` | Origen frontend local (5173); Compose lo adapta a `WEB_PORT` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` | SMTP y remitente: localhost:1025 por defecto, mailpit:1025 en Compose |
+| `SMTP_SECURE`, `SMTP_REQUIRE_TLS` | TLS implícito / STARTTLS; obligatorio para host remoto |
+| `SMTP_USER`, `SMTP_PASSWORD` | Autenticación opcional; configurar juntos solo en entorno |
 
 `.env.example` documenta las claves sin secretos válidos. En producción suministrar secretos desde el entorno/gestor, usar TLS ≥1.2, roles de BD de privilegios mínimos y migraciones mediante tarea de despliegue. Compose es un entorno local de una réplica; no certifica disponibilidad ni concurrencia institucional. No publicar sus puertos a Internet.
 
@@ -90,12 +93,27 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | --- | --- | --- |
 | POST | `/api/identity/login` | `{email,password}` → token de 15 min y perfil; 5 intentos/min/IP |
 | GET | `/api/identity/me` | Bearer JWT válido; perfil actual desde BD |
+| PATCH | `/api/identity/me` | Perfil propio: displayName y version |
+| POST | `/api/identity/logout` | Revocación persistida de sesión actual; 204 |
 | POST | `/api/identity/users` | ADMIN; `{email,displayName,password,role}` → 201 |
 | GET | `/api/identity/users?limit=25&offset=0` | ADMIN; paginación, máximo 100 |
+| PATCH | `/api/identity/users/:id` | ADMIN; email, displayName, role, active, version |
+| POST | `/api/identity/password/change` | currentPassword, newPassword; cierra todas las sesiones |
+| POST | `/api/identity/password/recovery` | email; 202 genérico, sin token ni revelación de existencia |
+| POST | `/api/identity/password/reset` | token y password; un uso, 15 minutos |
+| GET | `/api/identity/security-events` | ADMIN; registro paginado de seguridad |
 | GET | `/api/health/live` | Liveness del proceso |
 | GET | `/api/health/ready` | Conectividad con BD, 503 si falla |
 
-DTO estrictos; 400 inválido, 401 credenciales/token, 403 rol, 409 duplicado, 429 límite. Los perfiles no contienen hash ni contraseña. JWT solo identifica al usuario; el rol se obtiene de BD en cada petición. El navegador conserva el token en memoria; recargar/cerrar sesión lo elimina. Logout local no revoca un token robado: caduca en 15 minutos. Límite de peticiones en memoria por instancia; almacenamiento distribuido y configuración de proxy confiable quedan pendientes antes de escalar. Las peticiones al mismo proxy local comparten límite por IP; no confiar ciegamente en `X-Forwarded-For`.
+DTO estrictos; 400 inválido, 401 credenciales/token/sesión, 403 permiso, 409 duplicado/versión/último ADMIN, 429 límite. Perfiles sin credenciales. JWT identifica usuario y sesión; rol/estado se obtienen de BD. Token en memoria del navegador; recargar requiere nuevo acceso. **Logout revoca la sesión en servidor**. Cambios de acceso o contraseña revocan las sesiones afectadas. Se protege al último ADMIN activo incluso con cambios simultáneos. El limitador HTTP sigue en memoria por instancia; almacenamiento compartido y proxy confiable pendientes antes de escalar. [API completa](docs/IDENTIDAD_API.md) y [ADR-005](docs/ADR/005-identidad-completa.md).
+
+## Recuperación por correo
+
+Compose incluye **Mailpit**, servidor SMTP local con bandeja en **http://localhost:8025** y SMTP en 1025. Recibe mensajes reales y los captura; **no los reenvía a buzones de Internet**. No usarlo como proveedor de producción ni exponerlo públicamente. En desarrollo iniciar `db mailpit`; el enlace apunta al `WEB_ORIGIN` configurado (5173 en Vite, 8080 en Compose).
+
+En «Olvidé mi contraseña», solicitar el enlace para una cuenta activa y abrir el mensaje en Mailpit. Es válido 15 minutos, de un solo uso y permite elegir una contraseña nueva. La SPA lee/elimina el fragmento de la dirección. Todas las sesiones anteriores quedan revocadas. Cuentas desconocidas/inactivas reciben la misma respuesta genérica. Cooldown 60 s por cuenta y 3 solicitudes/min/IP.
+
+Cola cifrada en PostgreSQL, consumidor dentro del mismo backend cada 2 s, hasta 5 intentos SMTP con backoff. El ADMIN ve los fallos en Eventos de seguridad; aceptación SMTP no garantiza llegada al buzón final de un proveedor remoto. Para producción configurar SMTP autenticado/TLS y HTTPS público. Ver ADR-005 para límites y rotación de secretos.
 
 ## Pruebas
 
@@ -118,10 +136,20 @@ Remove-Item Env:DATABASE_URL,Env:TEST_DATABASE_URL,Env:TEST_DB_PASSWORD
 
 En Bash: generar `TEST_DB_PASSWORD` con Node, exportar `TEST_DATABASE_URL` con la misma URL/puerto y ejecutar la migración con `DATABASE_URL="$TEST_DATABASE_URL" npm run db:migrate`. La base de pruebas vive en tmpfs; detener su contenedor la descarta. CI ejecuta los mismos tests contra un servicio PostgreSQL real. [Plan de carga](docs/PRUEBAS_CARGA.md): escenarios EAC-01/02/03, todavía pendientes del módulo de exámenes.
 
-Con Compose levantado y la compilación local disponible, `npm run test:smoke` comprueba CLI, SPA, Nginx, autenticación, alta/listado y denegación por rol. Crea cuentas temporales y elimina únicamente sus propios registros al terminar. No modifica cuentas existentes.
+Integración de fase 2 requiere Mailpit SMTP/API en 1025/8025: `docker compose up -d mailpit --wait`. CI lo proporciona como servicio real. Con Compose y compilación local, `npm run test:smoke` verifica SPA, Nginx, alta/listado, permisos y revocación al salir. Crea y elimina solo sus cuentas temporales.
+
+Prueba en navegador real, con Compose actualizado y `.env` local apuntando a su PostgreSQL:
+
+```powershell
+$env:PLAYWRIGHT_BROWSERS_PATH = "$PWD\.tools\playwright"
+npx.cmd playwright install chromium
+npm.cmd run test:e2e
+```
+
+Requiere `npm run build`. Cubre administración, roles, perfil responsivo, logout y correo/recuperación hasta el acceso nuevo. Crea cuentas únicas de QA y elimina solo esas cuentas; no usar contra producción. Screenshots en `tmp/screens/`, fuera de Git. CI ejecuta unitarias/arquitectura e integración; Chromium se verifica localmente.
 
 ## Alcance de esta entrega
 
-Implementados acceso, perfiles, cuatro roles, alta/listado administrativo, aprovisionamiento CLI, persistencia real, interfaz responsiva, Docker y CI. CAR-13/CU-13 está **parcial**: edición/baja de usuarios, cambios de rol, recuperación/cambio de contraseña, revocación y MFA no están implementados. No hay registro público.
+Implementados CAR-13/CU-13 para esta fase: alta/listado/edición administrativa, cuatro roles, activación/desactivación, perfil editable, acceso/salida revocable, cambio/recuperación de contraseña, eventos de seguridad y panel por rol. Registro administrativo, sin alta pública abierta. Cada cuenta tiene un rol. CLI solo para el primer ADMIN.
 
-Los otros trece módulos tienen carpetas y responsabilidades documentadas, sin controladores/adaptadores ficticios. Cursos, matrícula, exámenes, autoguardado, calificación, auditoría inmutable, archivos, foros, analítica, plagio y monitoreo completo quedan pendientes. Ver el [plan incremental](docs/PLAN_DESARROLLO.md). No se ha desplegado a nube ni fusionado con `main`.
+Los otros trece módulos siguen pendientes. EAC-05 está cubierto en identidad/permisos; ACL por curso/sección y TLS de producción dependen de módulos/despliegue posteriores. MFA/SSO, refresh/cookies, límite distribuido y retención operacional son mejoras posteriores. Ver [plan](docs/PLAN_DESARROLLO.md), [API](docs/IDENTIDAD_API.md) y [verificación](docs/VERIFICACION.md). Fase preparada en `feat/identity-complete`, sin merge automático ni despliegue a nube.

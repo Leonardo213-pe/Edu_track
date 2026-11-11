@@ -24,9 +24,13 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Run npm run setup:env}
       WEB_ORIGIN: http://localhost:${WEB_PORT:-8080}
       PORT: 3000
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_FROM: EduTrack <noreply@edutrack.test>
     ports: ["127.0.0.1:${PORT:-3000}:3000"]
     depends_on:
       db: { condition: service_healthy }
+      mailpit: { condition: service_started }
     command: ["sh", "-c", "npm run db:migrate -w @edutrack/api && node apps/api/dist/main.js"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -47,6 +51,10 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"]
     restart: unless-stopped
 volumes:
   postgres_data:
