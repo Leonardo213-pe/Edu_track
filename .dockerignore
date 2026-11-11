@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+.tools
+tmp
+coverage
+**/coverage
+apps/api/src/modules/identity/infrastructure/persistence/generated
+docs/Informe_Trabajo_Final_EduTrack_LMS.pdf

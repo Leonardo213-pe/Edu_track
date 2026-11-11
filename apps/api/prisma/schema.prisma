@@ -1,0 +1,30 @@
+generator client {
+  provider = "prisma-client"
+  output = "../src/modules/identity/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas = ["identity"]
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  INSTRUCTIONAL_DESIGNER
+  ADMIN
+  @@schema("identity")
+}
+
+model User {
+  id String @id @db.Uuid
+  email String @unique @db.VarChar(254)
+  displayName String @db.VarChar(100)
+  passwordHash String
+  role Role
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  @@map("users")
+  @@schema("identity")
+}

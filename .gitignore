@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+.tools/
+tmp/
+apps/api/src/modules/identity/infrastructure/persistence/generated/
+*.tsbuildinfo
+test-results/
+playwright-report/

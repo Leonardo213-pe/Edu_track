@@ -1,0 +1,20 @@
+{
+  "name": "edutrack-lms", "version": "0.1.0", "private": true,
+  "workspaces": ["apps/api", "apps/web"],
+  "engines": { "node": ">=24 <25", "npm": ">=11" },
+  "scripts": {
+    "setup:env": "node scripts/setup-env.mjs",
+    "generate": "npm run generate -w @edutrack/api",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspaces && npm run test:architecture",
+    "test:architecture": "node --test tests/architecture.test.mjs",
+    "test:integration": "npm run test:integration -w @edutrack/api",
+    "test:smoke": "node apps/api/test/compose-smoke.mjs",
+    "db:migrate": "npm run db:migrate -w @edutrack/api",
+    "user:create": "npm run user:create -w @edutrack/api",
+    "dev:api": "npm run dev -w @edutrack/api",
+    "dev:web": "npm run dev -w @edutrack/web",
+    "check": "npm run generate && npm run typecheck && npm run build && npm test"
+  }
+}

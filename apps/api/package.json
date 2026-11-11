@@ -1,0 +1,26 @@
+{
+  "name": "@edutrack/api", "version": "0.1.0", "private": true,
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "start": "node --env-file-if-exists=../../.env dist/main.js",
+    "dev": "node --env-file-if-exists=../../.env --watch dist/main.js",
+    "test": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:migrate": "prisma migrate deploy",
+    "user:create": "node --env-file-if-exists=../../.env dist/modules/identity/infrastructure/cli/create-user.js"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0", "@nestjs/core": "^11.1.0", "@nestjs/platform-express": "^11.1.0",
+    "@nestjs/jwt": "^11.0.0", "@nestjs/throttler": "^6.4.0",
+    "@prisma/client": "^7.0.0", "@prisma/adapter-pg": "^7.0.0",
+    "class-transformer": "^0.5.1", "class-validator": "^0.14.2", "dotenv": "^17.2.0",
+    "helmet": "^8.1.0", "pg": "^8.16.0", "reflect-metadata": "^0.2.2", "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0", "@types/node": "^24.0.0", "@types/pg": "^8.15.0",
+    "@types/supertest": "^6.0.3", "@vitest/coverage-v8": "5.1.0", "prisma": "^7.0.0",
+    "supertest": "^7.1.0", "typescript": "~5.9.3", "vitest": "5.1.0", "vite": "^7.2.0"
+  }
+}
