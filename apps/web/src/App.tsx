@@ -6,6 +6,7 @@ import { AdminUsers } from './AdminUsers';
 import { SecurityEvents } from './SecurityEvents';
 import { CoursesWorkspace } from './CoursesWorkspace';
 import { AuditView } from './AuditView';
+import { NotificationsBell } from './NotificationsBell';
 function Brand() { return <a className="brand" href="/" aria-label="EduTrack, inicio"><span className="brand-mark">e<span>t</span></span>EduTrack<span className="brand-tag">LMS</span></a>; }
 export function App() {
   const [session, setSession] = useState<Session | null>(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
@@ -58,7 +59,7 @@ function Workspace({ session, logout, busy, error: parentError, ended }: { sessi
   useEffect(() => { void refreshProfile(); }, [session.accessToken]);
   const intro = introductions[profile.role]; const administrator = profile.role === 'ADMIN';
   function navigate(view: string) { setError(''); setView(view); }
-  return <div className="workspace"><header className="topbar"><Brand /><div className="account"><span>{profile.displayName}</span><button disabled={busy} className="quiet" onClick={logout}>Cerrar sesión ↗</button></div></header>
+  return <div className="workspace"><header className="topbar"><Brand /><div className="account"><NotificationsBell token={session.accessToken} /><span>{profile.displayName}</span><button disabled={busy} className="quiet" onClick={logout}>Cerrar sesión ↗</button></div></header>
     <main className="workspace-content"><span className="eyebrow">MI ESPACIO / {intro.tag}</span><div className="welcome-row"><div><h1>Hola, {profile.displayName.split(' ')[0]}.</h1><p className="muted">{intro.text}</p></div><span className="role-badge">{roles[profile.role]}</span></div>
       <nav className="workspace-nav" aria-label="Secciones de mi espacio"><button aria-current={view === 'home' ? 'page' : undefined} onClick={() => navigate('home')}>Inicio</button><button aria-current={view === 'profile' ? 'page' : undefined} onClick={() => navigate('profile')}>Mi perfil y seguridad</button>
         <button aria-current={view === 'courses' ? 'page' : undefined} onClick={() => navigate('courses')}>{profile.role === 'STUDENT' ? 'Mis cursos' : profile.role === 'INSTRUCTIONAL_DESIGNER' ? 'Revisión de cursos' : 'Cursos'}</button>

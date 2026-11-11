@@ -26,3 +26,5 @@ export interface GradingDirectory {
   names(ids: string[]): Promise<Map<string, string>>;
 }
 export interface GradingRuntime { id(): string; now(): string }
+/** Best-effort notice to the student; a failure never undoes the (durable, audited) grade. */
+export interface GradeNotifier { gradeRecorded(input: { studentId: string; courseId: string; assessmentId: string; title: string; score: number }): Promise<void> }

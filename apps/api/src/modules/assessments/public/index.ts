@@ -24,4 +24,6 @@ export interface AssessmentCatalog {
   drawForAttempt(id: string): Promise<DrawnQuestion[]>;
   /** Server-side only (automatic grading); never exposed over HTTP. */
   answerKey(id: string): Promise<AnswerKeyItem[]>;
+  /** Published assessments whose due date falls in [from, to) (due-date reminders). */
+  dueBetween(from: string, to: string): Promise<{ id: string; courseId: string; title: string; dueAt: string }[]>;
 }

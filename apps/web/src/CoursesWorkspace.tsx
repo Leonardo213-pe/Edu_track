@@ -7,6 +7,9 @@ import {
 import { AssessmentsPanel } from './AssessmentsPanel';
 import { QuestionBankPanel } from './QuestionBankPanel';
 import { GradebookPanel } from './GradebookPanel';
+import { ForumsPanel } from './ForumsPanel';
+import { AnalyticsPanel } from './AnalyticsPanel';
+import { evaluationApi } from './assessments-api';
 
 type Summary = Omit<CourseView, 'units' | 'reviews' | 'syllabus'> & { unitCount: number; sessionCount: number };
 type Teacher = { id: string; displayName: string };
@@ -84,6 +87,12 @@ export function CoursesWorkspace({ token, profile, failed }: { token: string; pr
     } catch (error) { failed(error); } finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, [token]);
+  // Connection time (CAR-08): one heartbeat per minute while a student keeps a course open and the page visible.
+  useEffect(() => {
+    if (!student || !current) return;
+    const beat = () => { if (document.visibilityState === 'visible') void evaluationApi(`/analytics/courses/${current.id}/heartbeat`, token, {}).catch(() => undefined); };
+    beat(); const timer = setInterval(beat, 60_000); return () => clearInterval(timer);
+  }, [student, current?.id, token]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview.url); }, [preview]);
 
   async function open(id: string) {
@@ -268,8 +277,9 @@ export function CoursesWorkspace({ token, profile, failed }: { token: string; pr
     </section>;
   }
   function courseDetail(course: CourseView) {
-    const tabs: [string, string][] = [['content', 'Contenido'], ['syllabus', 'Sílabo'], ['assessments', 'Evaluaciones'],
+    const tabs: [string, string][] = [['content', 'Contenido'], ['syllabus', 'Sílabo'], ['assessments', 'Evaluaciones'], ['forums', 'Foros'],
       ...(manager ? [['bank', 'Banco de preguntas'] as [string, string], ['grades', 'Calificaciones'] as [string, string]] : []),
+      ...(manager || designer ? [['tracking', 'Seguimiento y riesgo'] as [string, string]] : []),
       ...(!student ? [['history', 'Historial'] as [string, string]] : []),
       ...(administrator ? [['enrollments', 'Inscritos'] as [string, string]] : []),
       ...(editable ? [['settings', 'Editar curso'] as [string, string]] : [])];
@@ -310,6 +320,8 @@ export function CoursesWorkspace({ token, profile, failed }: { token: string; pr
       {tab === 'history' && !student && historyPanel(course)}
       {tab === 'assessments' && <AssessmentsPanel courseId={course.id} courseStatus={course.status} token={token} role={profile.role} manager={manager} failed={failed} />}
       {tab === 'bank' && manager && <QuestionBankPanel courseId={course.id} token={token} failed={failed} />}
+      {tab === 'forums' && <ForumsPanel courseId={course.id} token={token} failed={failed} />}
+      {tab === 'tracking' && (manager || designer) && <AnalyticsPanel courseId={course.id} token={token} canEdit={manager} failed={failed} />}
       {tab === 'grades' && manager && <GradebookPanel courseId={course.id} token={token} failed={failed} />}
       {tab === 'enrollments' && administrator && enrollmentPanel(course)}
       {designer && course.status === 'EN_REVISION' && <section className="panel review-panel"><span className="eyebrow">CONTROL INSTRUCCIONAL</span><h3>Decisión de revisión</h3>

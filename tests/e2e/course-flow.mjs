@@ -103,6 +103,20 @@ async function verifyAssessments({ page, studentPage, signIn, code, teacher, adm
   await page.getByRole('row', { name: /Cuestionario QA/ }).getByRole('button', { name: 'Intentos', exact: true }).click();
   await expect(page.getByRole('region', { name: 'Intentos del cuestionario' }).getByRole('row', { name: /Estudiante actualizado/ })).toContainText('Finalizado');
 
+  // Phase 8: forum thread with Observer notification to the teacher, and the explainable risk dashboard.
+  await page.getByRole('button', { name: 'Foros', exact: true }).click(); await page.getByLabel('Título del foro').fill('Consultas QA');
+  await page.getByRole('button', { name: /Crear foro/ }).click(); await expect(page.getByRole('button', { name: 'Consultas QA' })).toBeVisible();
+  await studentPage.getByRole('button', { name: 'Foros', exact: true }).click(); await studentPage.getByRole('button', { name: 'Consultas QA' }).click();
+  await studentPage.getByLabel('Título del hilo').fill('Duda QA'); await studentPage.getByLabel('Mensaje').fill('¿El cuestionario cuenta para el promedio?');
+  await studentPage.getByRole('button', { name: /Publicar hilo/ }).click(); await expect(studentPage.getByText('¿El cuestionario cuenta para el promedio?')).toBeVisible();
+  await studentPage.screenshot({ path: 'tmp/screens/phase8-forum.png', fullPage: true });
+
+  await page.getByRole('button', { name: /Notificaciones,/ }).click(); await expect(page.getByText('Nuevo hilo: Duda QA')).toBeVisible();
+  await page.getByRole('button', { name: /Notificaciones,/ }).click();
+  await page.getByRole('button', { name: 'Seguimiento y riesgo', exact: true }).click();
+  await expect(page.getByRole('row', { name: /Estudiante actualizado/ })).toBeVisible(); await expect(page.getByText(/inscritos/)).toBeVisible();
+  await page.screenshot({ path: 'tmp/screens/phase8-risk.png', fullPage: true });
+
   await page.getByRole('button', { name: /Cerrar sesión/ }).click(); await signIn(page, admin.email);
   await page.getByRole('button', { name: 'Auditoría', exact: true }).click(); await page.getByLabel('Tipo de registro').selectOption('GRADE');
   await expect(page.getByText(/16 → 14/).first()).toBeVisible(); await page.getByRole('button', { name: /Verificar integridad/ }).click();

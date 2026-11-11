@@ -11,7 +11,7 @@ Cada etapa termina con build, pruebas de permisos/invariantes, integración real
 | Fase 5: exámenes críticos, terminada (ADR-009; certificación de carga pendiente) | CU-03, CAR-11, EAC-01/02/03; intentos, tiempo servidor, autoguardado, reconexión, finalización | Idempotencia/reordenamiento/vencimiento, sin pérdida de ACK; carga y failover en entorno representativo; no certificar por unit tests |
 | Fase 6: adaptador de matrículas externas | CAR-09, RES-01, CU-12; contrato SOAP/REST real, scheduler 02:00, conciliación | Sandbox institucional, altas/bajas/secciones idempotentes, reintentos/fallo/alerta; sin matrícula oficial manual |
 | Fase 7: tareas y plagio | CAR-05/10, CU-04/15; archivos y proveedor externo | Cuotas, permisos, recepción durable, outbox/inbox/reintentos; contrato real y errores del proveedor |
-| Fase 8: colaboración y analítica | CAR-07/08, CU-05/09/11; foros, notificaciones, riesgo por reglas | Moderación, ACL por curso, métricas trazables, cero ML |
+| Fase 8: colaboración y analítica, terminada (ADR-010) | CAR-07/08, CU-05/09/11; foros, notificaciones, riesgo por reglas | Moderación, ACL por curso, métricas trazables, cero ML |
 | Fase 9: administración y operación | CAR-14, CU-14; observabilidad, auditoría consultable, recuperación | TLS ≥1.2, privilegios mínimos, backups restaurados, SLO medidos, nube según autorización |
 
 La entrega 1.0 del PDF agrupa más características; la etapa 0 actual es únicamente la primera base solicitada, no toda esa entrega ni la PoC final del informe. La auditoría se adelanta a cualquier escritura de notas/exámenes publicados para evitar deuda de integridad.

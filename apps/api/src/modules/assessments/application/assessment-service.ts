@@ -124,6 +124,9 @@ export class AssessmentService implements AssessmentCatalog {
       questionId: question.questionId, position, type: question.type, statement: question.statement, pointsCents: question.pointsCents,
       options: question.options.map(option => ({ id: option.id, text: option.text })) }));
   }
+  async dueBetween(from: string, to: string) {
+    return (await this.repo.dueBetween(from, to)).map(item => ({ id: item.data.id, courseId: item.data.courseId, title: item.data.title, dueAt: item.data.dueAt }));
+  }
   async answerKey(id: string): Promise<AnswerKeyItem[]> {
     return (await this.repo.snapshot(id)).map(question => ({ questionId: question.questionId, pointsCents: question.pointsCents,
       correctOptionIds: question.options.filter(option => option.correct).map(option => option.id) }));

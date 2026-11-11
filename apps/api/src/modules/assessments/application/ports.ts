@@ -20,6 +20,7 @@ export interface AssessmentRepository {
   mutate(id: string, revision: number, actorId: string, work: (assessment: Assessment, siblings: Assessment[]) => Promise<SnapshotQuestion[] | void>): Promise<Assessment>;
   remove(id: string, revision: number): Promise<void>;
   snapshot(id: string): Promise<SnapshotQuestion[]>;
+  dueBetween(from: string, to: string): Promise<Assessment[]>;
 }
 export interface CourseSummary { id: string; code: string; name: string; teacherId: string; status: string }
 export interface AssessmentCourses { describe(courseId: string): Promise<CourseSummary | null> }

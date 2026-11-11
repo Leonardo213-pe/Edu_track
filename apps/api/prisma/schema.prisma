@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit", "exams"]
+  schemas = ["identity", "courses", "enrollments", "assessments", "grading", "audit", "exams", "collaboration", "analytics"]
 }
 generator courseClient {
   provider = "prisma-client"
@@ -186,6 +186,112 @@ model ExamOutbox {
   @@index([processedAt, availableAt])
   @@map("outbox")
   @@schema("exams")
+}
+
+generator collaborationClient {
+  provider = "prisma-client"
+  output = "../src/modules/collaboration/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+generator analyticsClient {
+  provider = "prisma-client"
+  output = "../src/modules/analytics/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+
+// Phase 8: forums per course/unit, threads, messages, subscriptions (Observer) and the in-app notification inbox (CAR-07).
+model Forum {
+  id String @id @db.Uuid
+  courseId String @db.Uuid
+  unitId String? @db.Uuid
+  title String @db.VarChar(160)
+  description String
+  createdBy String @db.Uuid
+  createdAt DateTime @db.Timestamptz(3)
+  threads ForumThread[]
+  @@index([courseId])
+  @@map("forums")
+  @@schema("collaboration")
+}
+model ForumThread {
+  id String @id @db.Uuid
+  forumId String @db.Uuid
+  forum Forum @relation(fields: [forumId], references: [id], onDelete: Cascade)
+  authorId String @db.Uuid
+  title String @db.VarChar(160)
+  pinned Boolean @default(false)
+  locked Boolean @default(false)
+  createdAt DateTime @db.Timestamptz(3)
+  lastActivityAt DateTime @db.Timestamptz(3)
+  messages ForumMessage[]
+  subscriptions ThreadSubscription[]
+  @@index([forumId, lastActivityAt])
+  @@map("threads")
+  @@schema("collaboration")
+}
+model ForumMessage {
+  id String @id @db.Uuid
+  threadId String @db.Uuid
+  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId String @db.Uuid
+  body String
+  createdAt DateTime @db.Timestamptz(3)
+  hidden Boolean @default(false)
+  hiddenBy String? @db.Uuid
+  hiddenReason String? @db.VarChar(500)
+  @@index([threadId, createdAt])
+  @@map("messages")
+  @@schema("collaboration")
+}
+model ThreadSubscription {
+  threadId String @db.Uuid
+  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  userId String @db.Uuid
+  createdAt DateTime @db.Timestamptz(3)
+  @@id([threadId, userId])
+  @@index([userId])
+  @@map("subscriptions")
+  @@schema("collaboration")
+}
+model Notification {
+  id String @id @db.Uuid
+  userId String @db.Uuid
+  type String @db.VarChar(30)
+  title String @db.VarChar(200)
+  body String @db.VarChar(1000)
+  link Json
+  dedupeKey String? @unique @db.VarChar(200)
+  createdAt DateTime @db.Timestamptz(3)
+  readAt DateTime? @db.Timestamptz(3)
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
+  @@schema("collaboration")
+}
+
+// Phase 8: connection time and configurable risk rules (CAR-08; rules only, no ML).
+model ActivityDay {
+  userId String @db.Uuid
+  courseId String @db.Uuid
+  day DateTime @db.Date
+  minutes Int @default(0)
+  lastSeenAt DateTime @db.Timestamptz(3)
+  @@id([userId, courseId, day])
+  @@index([courseId, day])
+  @@map("activity")
+  @@schema("analytics")
+}
+model RiskRule {
+  courseId String @id @db.Uuid
+  minProgress Int
+  minAverageCents Int
+  maxInactiveDays Int
+  maxMissed Int
+  updatedBy String @db.Uuid
+  updatedAt DateTime @db.Timestamptz(3)
+  @@map("risk_rules")
+  @@schema("analytics")
 }
 
 // Local projection of the Academic Registry roster (CAR-09 source of truth stays external).

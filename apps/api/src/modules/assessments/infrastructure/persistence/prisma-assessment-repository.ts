@@ -92,5 +92,8 @@ export class PrismaAssessmentRepository implements AssessmentRepository {
     return rows.map(row => ({ questionId: row.questionId, position: row.position, type: row.type as QuestionType, statement: row.statement,
       pointsCents: row.pointsCents, options: row.options as unknown as QuestionOption[] }));
   }
+  async dueBetween(from: string, to: string) {
+    return (await this.db.assessment.findMany({ where: { status: 'PUBLISHED', dueAt: { gte: new Date(from), lt: new Date(to) } } })).map(row => this.assessment(row));
+  }
   async onModuleDestroy() { await this.db.$disconnect(); }
 }

@@ -1,6 +1,11 @@
 /** Grading scale agreed for the LMS (not the official academic record): vigesimal, pass mark 11. */
 export const GRADING_SCALE = { max: 20, passing: 11, decimals: 2 } as const;
 
+export const GRADE_READER = Symbol('GRADE_READER');
+/** Academic standing of each enrolled student (analytics, risk rules). Hundredths on the 0-20 scale. */
+export interface StudentStanding { readonly studentId: string; readonly currentCents: number | null; readonly finalCents: number; readonly gradedAssessmentIds: readonly string[] }
+export interface GradeReader { standing(courseId: string): Promise<StudentStanding[]> }
+
 export const GRADE_RECORDER = Symbol('GRADE_RECORDER');
 export interface AutomaticGradeInput {
   readonly assessmentId: string; readonly courseId: string; readonly studentId: string;

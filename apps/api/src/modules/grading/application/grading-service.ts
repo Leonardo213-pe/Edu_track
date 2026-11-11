@@ -1,6 +1,6 @@
 import { Grade, GradingError, PASSING_GRADE, SCALE_MAX_CENTS, strategyFor, weightedAverage, type Average } from '../domain/grading';
 import type { AutomaticGradeInput } from '../public';
-import type { GradableAssessment, GradeRepository, GradingAssessments, GradingCourses, GradingDirectory, GradingEnrollment, GradingRuntime } from './ports';
+import type { GradableAssessment, GradeNotifier, GradeRepository, GradingAssessments, GradingCourses, GradingDirectory, GradingEnrollment, GradingRuntime } from './ports';
 
 const points = (cents: number | null) => cents === null ? null : cents / 100;
 function averageView(average: Average) {
@@ -19,7 +19,22 @@ function gradeView(grade: Grade) {
 /** CU-08: grading with Strategy, weighted averages and atomic audit of every grade change. */
 export class GradingService {
   constructor(private readonly grades: GradeRepository, private readonly assessments: GradingAssessments, private readonly courses: GradingCourses,
-    private readonly enrollments: GradingEnrollment, private readonly directory: GradingDirectory, private readonly runtime: GradingRuntime) {}
+    private readonly enrollments: GradingEnrollment, private readonly directory: GradingDirectory, private readonly runtime: GradingRuntime,
+    private readonly notifier: GradeNotifier = { gradeRecorded: async () => undefined }) {}
+
+  private announce(grade: Grade, title: string): void {
+    void this.notifier.gradeRecorded({ studentId: grade.data.studentId, courseId: grade.data.courseId, assessmentId: grade.data.assessmentId, title,
+      score: grade.data.scoreCents / 100 }).catch(() => undefined);
+  }
+  /** Standing of every enrolled student for analytics (risk rules). */
+  async standing(courseId: string) {
+    const [assessments, grades, students] = await Promise.all([this.assessments.gradable(courseId), this.grades.forCourse(courseId), this.enrollments.studentsOf(courseId)]);
+    return students.map(studentId => {
+      const own = grades.filter(grade => grade.data.studentId === studentId && assessments.some(item => item.id === grade.data.assessmentId));
+      const average = GradingService.average(assessments, own);
+      return { studentId, currentCents: average.currentCents, finalCents: average.finalCents, gradedAssessmentIds: own.map(grade => grade.data.assessmentId) };
+    });
+  }
 
   readonly scale = { max: SCALE_MAX_CENTS / 100, passing: PASSING_GRADE };
   private async course(courseId: string) {
@@ -56,12 +71,12 @@ export class GradingService {
     if (current) {
       if (input.version !== current.data.version) throw new GradingError('CONFLICT');
       const next = current.revise(result, strategy.origin, input.reason ?? '', actorId, now);
-      await this.grades.save(next, current.data.version, actorId); return gradeView(next);
+      await this.grades.save(next, current.data.version, actorId); this.announce(next, assessment.title); return gradeView(next);
     }
     if (input.version !== undefined) throw new GradingError('CONFLICT');
     const grade = Grade.first({ id: this.runtime.id(), assessmentId, courseId: assessment.courseId, studentId, gradedBy: actorId, gradedAt: now },
       result, strategy.origin, input.reason ?? '');
-    await this.grades.save(grade, null, actorId); return gradeView(grade);
+    await this.grades.save(grade, null, actorId); this.announce(grade, assessment.title); return gradeView(grade);
   }
 
   /**
@@ -86,7 +101,7 @@ export class GradingService {
       if (stored?.data.detail.sourceId === input.sourceId) return { scoreCents: stored.data.scoreCents };
       throw error;
     }
-    return { scoreCents: result.scoreCents };
+    this.announce(grade, assessment.title); return { scoreCents: result.scoreCents };
   }
   async scoreOf(assessmentId: string, studentId: string): Promise<number | null> {
     return (await this.grades.find(assessmentId, studentId))?.data.scoreCents ?? null;

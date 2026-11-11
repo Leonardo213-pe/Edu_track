@@ -12,8 +12,8 @@
 | exams | Intentos, preguntas sorteadas, respuestas versionadas, vencimiento y outbox | `AttemptFinalized.v1` (outbox); consume ASSESSMENT_CATALOG y GRADE_RECORDER | Implementado fase 5 (ADR-009) |
 | submissions | Tareas, entregas y metadatos de archivos | SubmissionReference, SubmissionReceived | Planificado |
 | grading | Notas LMS (Strategy), versiones con motivo, promedios ponderados | `GRADING_SCALE` | Implementado fase 4 |
-| collaboration | Foros, hilos, suscripciones, bandeja de notificaciones | ForumMessagePosted, NotificationRequested | Planificado |
-| analytics | Proyecciones de progreso, conexión y riesgo; completitud fuente en courses | AcademicRisk, ProgressSummary | Planificado |
+| collaboration | Foros, hilos, mensajes, suscripciones, bandeja y recordatorios | `NOTIFICATION_SENDER` | Implementado fase 8 (ADR-010) |
+| analytics | Tiempo de conexión y reglas de riesgo por curso | HTTP para personal | Implementado fase 8 (ADR-010) |
 | enrollments | Proyección persistida de la lista oficial de inscritos por curso y bitácora de conciliaciones | ENROLLMENT_ACCESS: `EnrollmentAccess.isEnrolled/coursesOf`; HTTP ADMIN de conciliación | Proyección implementada (ADR-007); adaptador del Registro Académico CAR-09 pendiente |
 | plagiarism | Solicitudes y reportes del proveedor | PlagiarismReportAvailable | Planificado |
 | audit | Entradas de solo inserción con hash encadenado y verificación | Contrato BD `audit.append_entry`/`audit.record_row_change`, `AUDIT_ACTOR_SETTING` | Implementado fase 4 |

@@ -1,5 +1,24 @@
 # Verificación de EduTrack LMS
 
+## Fase 8: foros, notificaciones y analítica, 15 de noviembre de 2026
+
+Rama `feat/fase8-colaboracion-analitica`, creada desde `main` (`079d0af`). Decisiones en [ADR-010](ADR/010-colaboracion-analitica.md).
+
+| Verificación ejecutada | Resultado |
+| --- | --- |
+| `npm run check` | Código 0 |
+| Backend unitario | **115/115**; cobertura del núcleo: líneas 97,95 %, ramas 94,32 % |
+| Frontend | **22/22** (campana, foros, panel de riesgo y los anteriores) |
+| Arquitectura AST | **7/7** con `collaboration` y `analytics` |
+| Integración (PostgreSQL desechable) | **38/38**, 3 de ellas nuevas: foro por unidad, notificaciones Observer, darse de baja de un hilo, moderación, trigger contra la edición de mensajes, hilo cerrado, bandeja; recordatorio único por estudiante (2 en varias ejecuciones) y aviso de nota; señal de actividad sin inflar los minutos, panel de riesgo y reglas persistidas |
+| Compose | La API aplicó `202611150001_collaboration_analytics` sin borrar datos |
+| E2E Chromium | **1/1**: fases 2-5, más foro creado por el docente, hilo publicado por el estudiante, notificación «Nuevo hilo» en la campana del docente y panel de riesgo |
+
+Incidencias:
+- VS Code sobrescribió `bootstrap.ts` con una versión abierta anterior. Se volvió a aplicar la composición.
+- Se ajustaron tres expectativas mal calculadas en las pruebas (niveles de riesgo y el sorteo con `random` fijo).
+- La prueba de `App` pasó a responder según la URL, porque la campana hace su propia consulta.
+
 ## Fase 5: exámenes contra reloj, 14 de noviembre de 2026
 
 Rama `feat/fase5-examenes`, creada desde `feat/fase4-evaluaciones` (`8a08e08`). Decisiones en [ADR-009](ADR/009-examenes-concurrentes.md); guía en [EXAMENES.md](EXAMENES.md).

@@ -166,4 +166,6 @@ Evaluaciones (fase 4, [ADR-008](docs/ADR/008-evaluaciones-calificacion-auditoria
 
 Exámenes (fase 5, [ADR-009](docs/ADR/009-examenes-concurrentes.md), [EXAMENES.md](docs/EXAMENES.md)): intento contra reloj con vencimiento del servidor, autoguardado idempotente con ACK tras commit, reconexión con cola local, cierre por tiempo y calificación automática auditada vía outbox.
 
+Colaboración y analítica (fase 8, [ADR-010](docs/ADR/010-colaboracion-analitica.md)): foros por curso/unidad con moderación, notificaciones (respuestas, vencimientos, notas) y panel de seguimiento con riesgo explicable por reglas.
+
 Pendientes: S3/antivirus/conciliación y retención de archivos, adaptador SOAP/REST de matrículas (CAR-09), conexión/riesgo y resto del plan. TLS producción, MFA/SSO, refresh y límite distribuido siguen como mejoras operativas. Ramas: `main` contiene solo la fase 1; fase 2 en `feat/identity-complete`, fase 3 en `feat/courses-content` y su cierre posterior a la auditoría en `fix/fase3-cierre`. Ninguna se fusiona automáticamente; la fase 4 debe partir de la rama de cierre o de `main` una vez integradas.

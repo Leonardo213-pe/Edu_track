@@ -37,6 +37,14 @@ export class CourseService implements CourseCatalog {
     return course ? { id, code: course.data.code, name: course.data.name, teacherId: course.data.teacherId, status: course.data.status } : null;
   }
 
+  async units(id: string) {
+    const course = await this.repo.find(id); return course ? course.data.units.map(unit => ({ id: unit.id, title: unit.title })) : [];
+  }
+  async progressOf(id: string) {
+    const course = await this.repo.find(id); if (!course) return [];
+    return (await this.repo.activity(id)).map(row => ({ studentId: row.userId, percentage: course.progress(new Set(row.versions)).percentage }));
+  }
+
   async list(userId: string) {
     const actor = await this.actor(userId);
     let courses: Course[];

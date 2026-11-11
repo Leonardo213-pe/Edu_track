@@ -11,12 +11,14 @@ import { AuditModule } from './modules/audit/audit.module';
 import { AssessmentsModule } from './modules/assessments/assessments.module';
 import { GradingModule } from './modules/grading/grading.module';
 import { ExamsModule } from './modules/exams/exams.module';
+import { CollaborationModule } from './modules/collaboration/collaboration.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import type { AppConfig } from './config';
 
 @Controller('health')
 class HealthController {
   constructor(@Inject(IDENTITY_READINESS) private readonly readiness: { check(): Promise<void> }) {}
-  @Get('live') live() { return { status: 'ok' }; }
+  @Get ('live') live() { return { status: 'ok' }; }
   @Get('ready') async ready() {
     try { await this.readiness.check(); return { status: 'ready' }; }
     catch { throw new ServiceUnavailableException('Not ready'); }
@@ -29,9 +31,11 @@ class AppModule {
     const enrollments = EnrollmentsModule.register(identity, { databaseUrl: config.databaseUrl });
     const courses = CoursesModule.register(identity, enrollments, { databaseUrl: config.databaseUrl, storageRoot: config.academic?.storageRoot });
     const assessments = AssessmentsModule.register(identity, enrollments, courses, { databaseUrl: config.databaseUrl });
-    const grading = GradingModule.register(identity, enrollments, courses, assessments, { databaseUrl: config.databaseUrl });
-    return { module: AppModule, imports: [identity, enrollments, courses, assessments, grading,
+    const collaboration = CollaborationModule.register([identity, enrollments, courses, assessments], { databaseUrl: config.databaseUrl, reminderIntervalMs: config.reminderIntervalMs });
+    const grading = GradingModule.register(identity, enrollments, courses, assessments, collaboration, { databaseUrl: config.databaseUrl });
+    return { module: AppModule, imports: [identity, enrollments, courses, assessments, collaboration, grading,
       ExamsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl, jobIntervalMs: config.examJobIntervalMs }),
+      AnalyticsModule.register([identity, enrollments, courses, assessments, grading], { databaseUrl: config.databaseUrl }),
       AuditModule.register(identity, { databaseUrl: config.databaseUrl }),
       ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }])],
       controllers: [HealthController], providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }] };
