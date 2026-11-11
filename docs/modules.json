@@ -1,8 +1,8 @@
 [
   { "id": "identity", "status": "implemented", "owns": "users, roles, credentials, sessions, password recovery and security events", "dependencies": [] },
-  { "id": "courses", "status": "planned", "owns": "syllabus, units, sessions, course lifecycle", "dependencies": ["identity", "enrollments"] },
-  { "id": "materials", "status": "planned", "owns": "materials, immutable content versions, storage references", "dependencies": ["courses"] },
-  { "id": "course-review", "status": "planned", "owns": "reviews, decisions, course-version approval evidence", "dependencies": ["courses", "materials"] },
+  { "id": "courses", "status": "implemented", "owns": "courses, syllabus, units, sessions, material versions, lifecycle, review decisions, content completion", "dependencies": ["identity", "enrollments"] },
+  { "id": "materials", "status": "reserved-extraction", "owns": "no current data; capability owned by courses per ADR-006", "dependencies": [] },
+  { "id": "course-review", "status": "reserved-extraction", "owns": "no current data; capability owned by courses per ADR-006", "dependencies": [] },
   { "id": "assessments", "status": "planned", "owns": "question bank, assessment definitions and published snapshots", "dependencies": ["courses", "audit"] },
   { "id": "exams", "status": "planned", "owns": "attempts, assigned question snapshots, versioned answers, deadlines", "dependencies": ["assessments", "enrollments", "audit"] },
   { "id": "submissions", "status": "planned", "owns": "assignments, submissions, file metadata", "dependencies": ["courses", "enrollments"] },

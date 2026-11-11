@@ -13,6 +13,8 @@ export interface UserProfile extends Principal {
   readonly active: boolean; readonly version: number; readonly permissions: readonly Permission[];
 }
 export interface IdentityDirectory {
+  listInstructors(): Promise<{ id: string; displayName: string }[]>;
+  authenticate(token: string): Promise<UserProfile>;
   findPrincipal(id: string): Promise<Principal | null>;
   hasPermission(id: string, permission: Permission): Promise<boolean>;
 }

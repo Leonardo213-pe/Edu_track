@@ -4,6 +4,7 @@ import { RecoveryView } from './RecoveryView';
 import { ProfileView } from './ProfileView';
 import { AdminUsers } from './AdminUsers';
 import { SecurityEvents } from './SecurityEvents';
+import { CoursesWorkspace } from './CoursesWorkspace';
 function Brand() { return <a className="brand" href="/" aria-label="EduTrack, inicio"><span className="brand-mark">e<span>t</span></span>EduTrack<span className="brand-tag">LMS</span></a>; }
 export function App() {
   const [session, setSession] = useState<Session | null>(null); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
@@ -59,11 +60,13 @@ function Workspace({ session, logout, busy, error: parentError, ended }: { sessi
   return <div className="workspace"><header className="topbar"><Brand /><div className="account"><span>{profile.displayName}</span><button disabled={busy} className="quiet" onClick={logout}>Cerrar sesión ↗</button></div></header>
     <main className="workspace-content"><span className="eyebrow">MI ESPACIO / {intro.tag}</span><div className="welcome-row"><div><h1>Hola, {profile.displayName.split(' ')[0]}.</h1><p className="muted">{intro.text}</p></div><span className="role-badge">{roles[profile.role]}</span></div>
       <nav className="workspace-nav" aria-label="Secciones de mi espacio"><button aria-current={view === 'home' ? 'page' : undefined} onClick={() => navigate('home')}>Inicio</button><button aria-current={view === 'profile' ? 'page' : undefined} onClick={() => navigate('profile')}>Mi perfil y seguridad</button>
+        <button aria-current={view === 'courses' ? 'page' : undefined} onClick={() => navigate('courses')}>{profile.role === 'STUDENT' ? 'Mis cursos' : profile.role === 'INSTRUCTIONAL_DESIGNER' ? 'Revisión de cursos' : 'Cursos'}</button>
         {administrator && <><button aria-current={view === 'users' ? 'page' : undefined} onClick={() => navigate('users')}>Usuarios y roles</button><button aria-current={view === 'events' ? 'page' : undefined} onClick={() => navigate('events')}>Eventos de seguridad</button></>}</nav>
       {(error || parentError) && <p role="alert" className="message">{error || parentError}</p>}
       {view === 'home' && <><section className="profile-card"><div className="avatar" aria-hidden="true">{profile.displayName[0]?.toUpperCase()}</div><div><span className="eyebrow">CUENTA INSTITUCIONAL</span><h2>{profile.displayName}</h2><p>{profile.email}</p></div><span className="verified"><span className="status-dot" /> Sesión activa</span></section>
         <section className="panel"><span className="eyebrow">{intro.tag}</span><h2>{intro.title}</h2><p className="muted">{administrator ? 'Las herramientas de identidad están disponibles en Usuarios y roles y Eventos de seguridad.' : 'Puedes actualizar tu nombre y cambiar tu contraseña desde Mi perfil y seguridad.'}</p>
-          <p className="muted">Los cursos, evaluaciones y materiales se habilitarán en las próximas entregas de la plataforma.</p><button className="text-button" onClick={() => navigate(administrator ? 'users' : 'profile')}>{administrator ? 'Administrar usuarios →' : 'Abrir mi perfil →'}</button></section></>}
+          <p className="muted">Consulta tu espacio académico desde Cursos. Las evaluaciones se habilitarán en una próxima entrega.</p><button className="text-button" onClick={() => navigate('courses')}>Abrir espacio académico →</button></section></>}
+      {view === 'courses' && <CoursesWorkspace token={session.accessToken} profile={profile} failed={failed} />}
       {view === 'profile' && <ProfileView profile={profile} token={session.accessToken} updated={value => { setProfile(value); setError(''); }} ended={() => ended('Contraseña actualizada. Inicia sesión con tu nueva contraseña.')} failed={failed} />}
       {view === 'users' && administrator && <AdminUsers token={session.accessToken} failed={failed} refreshProfile={refreshProfile} />}
       {view === 'events' && administrator && <SecurityEvents token={session.accessToken} failed={failed} />}

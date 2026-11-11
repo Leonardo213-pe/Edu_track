@@ -16,6 +16,7 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/apps/api ./apps/api
 COPY --from=build --chown=node:node /app/package*.json ./
+RUN mkdir -p /app/storage/courses && chown -R node:node /app/storage
 USER node
 EXPOSE 3000
 CMD ["node", "apps/api/dist/main.js"]

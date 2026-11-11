@@ -5,9 +5,8 @@ Cada etapa termina con build, pruebas de permisos/invariantes, integración real
 | Etapa | Alcance | Criterio de salida |
 | --- | --- | --- |
 | 0: base, terminada | Fuente analizada; límites de 14 módulos; identidad inicial; SPA; PostgreSQL; Compose; CI | Base compilada y probada; ver verificación histórica |
-| Fase 2: identidad, actual | CAR-13: alta/edición, roles/estado, perfil, sesiones revocables, contraseñas, correo real, eventos | PostgreSQL/SMTP reales, permisos de cuatro roles, protección concurrente del último ADMIN, tests de arquitectura y pantallas conectadas |
-| 1: cursos, pendiente | CAR-01, CU-06: sílabo, unidades, sesiones | Propiedad por docente y sección, dominio puro, edición concurrente y ausencia de acceso estudiantil a borrador |
-| 2: contenido y revisión | CAR-02/03, CU-02/10; versiones, Borrador/En revisión/Publicado/Archivado | Solo diseñador aprueba versión válida; estudiantes ven solo publicado y matriculado; almacenamiento probado |
+| Fase 2: identidad, terminada | CAR-13: usuarios/roles/sesiones/contraseñas/eventos | Publicada en feat/identity-complete; base del PR de etapa 3, sin merge automático |
+| Etapa 3: cursos y contenidos, actual | CAR-01/02/03: curso/sílabo/unidades/sesiones, archivos/versiones, revisión, completitud | PostgreSQL/archivos/navegador reales; roles/propietario/matrícula probados; ADR-006, OpenAPI y trazabilidad |
 | 3: banco y calificación | CAR-04/06; CU-07/08; preguntas/snapshots, Strategy, rúbricas/pesos; base de auditoría CAR-12 | Soluciones nunca en DTO estudiantil, reglas de redondeo acordadas, nota/auditoría atómicas y auditoría inalterable |
 | 4: exámenes críticos | CU-03, CAR-11, EAC-01/02/03; intentos, tiempo servidor, autoguardado, reconexión, finalización | Idempotencia/reordenamiento/vencimiento, sin pérdida de ACK; carga y failover en entorno representativo; no certificar por unit tests |
 | 5: matrículas externas | CAR-09, RES-01, CU-12; contrato SOAP/REST real, scheduler 02:00, conciliación | Sandbox institucional, altas/bajas/secciones idempotentes, reintentos/fallo/alerta; sin matrícula oficial manual |
@@ -16,5 +15,7 @@ Cada etapa termina con build, pruebas de permisos/invariantes, integración real
 | 8: administración y operación | CAR-14, CU-14; observabilidad, auditoría consultable, recuperación | TLS ≥1.2, privilegios mínimos, backups restaurados, SLO medidos, nube según autorización |
 
 La entrega 1.0 del PDF agrupa más características; la etapa 0 actual es únicamente la primera base solicitada, no toda esa entrega ni la PoC final del informe. La auditoría se adelanta a cualquier escritura de notas/exámenes publicados para evitar deuda de integridad.
+
+La etapa 3 solicitada agrupa los antiguos incrementos «cursos» y «contenido/revisión». Su numeración no inicia Evaluaciones: ese módulo permanece pendiente. Matrícula real continúa en su etapa de integración; solo se admiten fixtures expresos para probar el acceso estudiantil mientras tanto. Pendientes operativos académicos en CURSOS.md.
 
 Antes de etapas dependientes: resolver preguntas de `ANALISIS_REQUISITOS.md`, obtener contratos de proveedores y datos de carga autorizados. No inventar fechas de entrega, rendimiento ni endpoints externos. Un sprint sugerido por el informe es de dos semanas; no se promete ese plazo sin estimación del equipo.

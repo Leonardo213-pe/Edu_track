@@ -1,6 +1,6 @@
 # EduTrack LMS
 
-Fase 2: **autenticación, usuarios y roles** sobre arquitectura hexagonal y monolito modular. Un backend NestJS, frontend React y PostgreSQL; Prisma permanece dentro del adaptador. Identidad incluye sesiones revocables, administración, recuperación/cambio de contraseña y eventos de seguridad. El correo usa SMTP real; no hay funcionalidades académicas simuladas.
+Etapa 3: **cursos y contenidos académicos**, integrada con autenticación/usuarios/roles de fase 2. Arquitectura hexagonal y monolito modular: un backend NestJS, React y PostgreSQL; Prisma solo en adaptadores. Archivos reales, versiones, revisión instruccional y completitud. El correo usa SMTP real; no hay contenidos simulados sustituyendo funcionalidades.
 
 ## Requisitos y decisiones
 
@@ -152,4 +152,8 @@ Requiere `npm run build`. Cubre administración, roles, perfil responsivo, logou
 
 Implementados CAR-13/CU-13 para esta fase: alta/listado/edición administrativa, cuatro roles, activación/desactivación, perfil editable, acceso/salida revocable, cambio/recuperación de contraseña, eventos de seguridad y panel por rol. Registro administrativo, sin alta pública abierta. Cada cuenta tiene un rol. CLI solo para el primer ADMIN.
 
-Los otros trece módulos siguen pendientes. EAC-05 está cubierto en identidad/permisos; ACL por curso/sección y TLS de producción dependen de módulos/despliegue posteriores. MFA/SSO, refresh/cookies, límite distribuido y retención operacional son mejoras posteriores. Ver [plan](docs/PLAN_DESARROLLO.md), [API](docs/IDENTIDAD_API.md) y [verificación](docs/VERIFICACION.md). Fase preparada en `feat/identity-complete`, sin merge automático ni despliegue a nube.
+Cursos/Contenidos: CAR-01/02/03 implementados en un contexto académico cohesivo (ADR-006), con State/Composite, sílabo, unidades/sesiones, orden, archivos/versiones, historial, revisión/aprobación y progreso básico. No se ha avanzado a Evaluaciones. Ver [guía de Cursos](docs/CURSOS.md), [OpenAPI](docs/openapi.json), [diagramas](docs/diagrams/CURSOS.md), [plan](docs/PLAN_DESARROLLO.md) y [verificación](docs/VERIFICACION.md).
+
+Docentes gestionan solo cursos propios; diseñador aprueba/rechaza; ADMIN administra; estudiantes solo publicado+matriculado. La sincronización institucional aún no existe: por defecto se deniega acceso estudiantil y los ensayos usan fixtures expresamente habilitados, documentados en CURSOS.md. Archivos en volumen `edutrack_course_files`, máximo 25 MiB; PDF/DOCX/PPTX/TXT/MP4/WebM. No borrar volúmenes al actualizar. Para editar publicado, volver explícitamente a borrador: deja de ser visible hasta nueva aprobación.
+
+Pendientes: S3/antivirus/conciliación y retención de archivos, matrícula real, conexión/riesgo, evaluaciones y resto del plan. TLS producción, MFA/SSO, refresh y límite distribuido siguen como mejoras operativas. PR de `feat/courses-content` con base `feat/identity-complete`, para revisar solo la etapa 3 sin fusionar automáticamente ninguna rama.
