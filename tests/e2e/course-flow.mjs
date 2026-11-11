@@ -50,12 +50,12 @@ export async function verifyCourses({ studentPage, browser, teacher, designer, a
   await expect(studentPage.getByRole('button', { name: 'Historial', exact: true })).toHaveCount(0);
   await studentPage.setViewportSize({ width: 390, height: 844 }); expect(await studentPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await studentPage.screenshot({ path: 'tmp/screens/phase3-student.png', fullPage: true });
-  if (process.env.ASSESSMENTS_E2E === 'true') await verifyAssessments({ page, studentPage, signIn, code, teacher, admin });
+  if (process.env.ASSESSMENTS_E2E === 'true') await verifyAssessments({ page, studentPage, signIn, code, teacher, admin, studentEmail });
   await context.close();
 }
 
 /** Phase 4 in a real browser: bank, rubric assessment, publication, grade + audited change, student average and audit log. */
-async function verifyAssessments({ page, studentPage, signIn, code, teacher, admin }) {
+async function verifyAssessments({ page, studentPage, signIn, code, teacher, admin, studentEmail }) {
   await page.getByRole('button', { name: /Cerrar sesión/ }).click(); await signIn(page, teacher.email);
   await page.getByRole('button', { name: 'Cursos', exact: true }).click(); await page.getByLabel('Buscar cursos').fill(code); await page.getByRole('button', { name: /Abrir curso/ }).click();
   await page.getByRole('button', { name: 'Banco de preguntas', exact: true }).click();
@@ -117,8 +117,44 @@ async function verifyAssessments({ page, studentPage, signIn, code, teacher, adm
   await expect(page.getByRole('row', { name: /Estudiante actualizado/ })).toBeVisible(); await expect(page.getByText(/inscritos/)).toBeVisible();
   await page.screenshot({ path: 'tmp/screens/phase8-risk.png', fullPage: true });
 
+  // Part B: the student submits the assignment file; the teacher sees it, the SIMULATED similarity report and downloads it.
+  await studentPage.getByRole('button', { name: 'Evaluaciones', exact: true }).click(); await studentPage.getByRole('button', { name: 'Entrega de Ensayo QA' }).click();
+  const delivery = studentPage.getByRole('region', { name: 'Entrega de Ensayo QA' });
+  await delivery.locator('input[type=file]').setInputFiles({ name: 'tarea.txt', mimeType: 'text/plain', buffer: Buffer.from('La arquitectura hexagonal separa el dominio de la infraestructura mediante puertos y adaptadores intercambiables.') });
+  await delivery.getByRole('button', { name: 'Entregar' }).click(); await expect(delivery.getByRole('status')).toHaveText('Entrega recibida (versión 1).');
+  await expect(delivery.getByText(/Entregado · tarea.txt/)).toBeVisible(); await studentPage.screenshot({ path: 'tmp/screens/partB-student-submission.png', fullPage: true });
+  await page.getByRole('button', { name: 'Evaluaciones', exact: true }).click(); await page.getByRole('row', { name: /Ensayo QA/ }).getByRole('button', { name: 'Entregas', exact: true }).click();
+  const submissions = page.getByRole('region', { name: 'Entregas de Ensayo QA' });
+  await expect(submissions.getByText('SIMULADO')).toBeVisible();
+  await expect(async () => { await submissions.getByRole('button', { name: 'Actualizar' }).click(); await expect(submissions.getByRole('row', { name: /Estudiante actualizado/ })).toContainText('%', { timeout: 1500 }); }).toPass({ timeout: 20000 });
+  await expect(submissions.getByRole('row', { name: /Estudiante actualizado/ })).toContainText('tarea.txt · v1');
+  const download = page.waitForEvent('download'); await submissions.getByRole('button', { name: 'Descargar' }).click();
+  expect((await download).suggestedFilename()).toBe('tarea.txt'); await page.screenshot({ path: 'tmp/screens/partB-teacher-submissions.png', fullPage: true });
+
   await page.getByRole('button', { name: /Cerrar sesión/ }).click(); await signIn(page, admin.email);
   await page.getByRole('button', { name: 'Auditoría', exact: true }).click(); await page.getByLabel('Tipo de registro').selectOption('GRADE');
   await expect(page.getByText(/16 → 14/).first()).toBeVisible(); await page.getByRole('button', { name: /Verificar integridad/ }).click();
   await expect(page.getByText(/Cadena íntegra/)).toBeVisible(); await page.screenshot({ path: 'tmp/screens/phase4-audit.png', fullPage: true });
+
+  // Part A: the SIMULATED Academic Registry lists the student for this course section; "Sincronizar ahora" reconciles it.
+  const registry = (route, body) => fetch(`http://localhost:4010${route}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-Registry-Key': process.env.REGISTRY_API_KEY ?? '' }, body: JSON.stringify(body) });
+  expect((await registry(`/admin/sections/${code}/2026-II`, { students: [{ email: studentEmail }, { email: 'sin.cuenta@alumnos.edutrack.test' }] })).status).toBe(200);
+  await page.getByRole('button', { name: 'Registro académico', exact: true }).click(); await expect(page.getByText('SIMULADO', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Sincronizar ahora' }).click();
+  await expect(page.getByRole('status')).toContainText('Sincronización correcta', { timeout: 30000 }); await expect(page.getByRole('status')).toContainText('sin cuenta en el LMS');
+  // Registry down: three retries with backoff, FAILED run, the LMS keeps working and the administrators get an inbox alert.
+  expect((await registry('/admin/mode', { mode: 'down' })).status).toBe(200);
+  try {
+    await page.getByRole('button', { name: 'Sincronizar ahora' }).click();
+    await expect(page.getByRole('status')).toContainText('falló tras 3 reintento(s)', { timeout: 60000 });
+  } finally { await registry('/admin/mode', { mode: 'up' }); }
+  await expect(page.getByRole('row', { name: /Manual Fallida/ }).first()).toBeVisible(); await page.screenshot({ path: 'tmp/screens/partA-registry.png', fullPage: true });
+  const bell = page.getByRole('button', { name: /Notificaciones,/ });
+  await expect(async () => { if (await bell.getAttribute('aria-expanded') === 'true') await bell.click(); await bell.click();
+    await expect(page.getByText('Falló la sincronización con el Registro Académico').first()).toBeVisible({ timeout: 2000 }); }).toPass({ timeout: 45000 });
+  // Part C: monitoring panel merged across the two API replicas.
+  await bell.click(); await page.getByRole('button', { name: 'Monitoreo', exact: true }).click();
+  await expect(page.getByText(/Réplicas activas: 2\/2/)).toBeVisible({ timeout: 20000 }); await expect(page.getByText(/p95 global:/)).toBeVisible();
+  await expect(page.getByRole('row', { name: /Sincronización nocturna del registro/ })).toBeVisible();
+  await page.screenshot({ path: 'tmp/screens/partC-monitoring.png', fullPage: true });
 }

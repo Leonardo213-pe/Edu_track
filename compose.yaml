@@ -26,6 +26,9 @@ x-api: &api
     # Chain head of the audit log copied outside the database, on its own volume (CAR-12).
     AUDIT_ANCHOR_DIR: /app/anchors
     AUDIT_ANCHOR_INTERVAL_MS: ${AUDIT_ANCHOR_INTERVAL_MS:-300000}
+    # Operational alert checks (registry failures, thresholds) and the backoff base of the registry retries.
+    ALERT_INTERVAL_MS: ${ALERT_INTERVAL_MS:-15000}
+    REGISTRY_RETRY_BASE_MS: ${REGISTRY_RETRY_BASE_MS:-2000}
   volumes:
     - course_files:/app/storage
     - audit_anchors:/app/anchors
@@ -44,6 +47,8 @@ x-api: &api
 services:
   db:
     image: postgres:17-alpine
+    # Connection budget: each API replica may open up to ~100 pooled connections (one pool per module adapter).
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:?Run npm run setup:env}
       POSTGRES_DB: ${POSTGRES_DB:?Run npm run setup:env}

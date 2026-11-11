@@ -82,7 +82,7 @@ export function TeacherSubmissions({ assessment, token, failed, close }: { asses
       setGrading(null); setNotice('Nota registrada y auditada.'); await load();
     } catch (error) { failed(error); } finally { setBusy(false); }
   }
-  return <section className="panel" aria-label={`Entregas de ${assessment.title}`}><div className="section-title"><h4>Entregas: {assessment.title}</h4><button className="quiet" onClick={close}>Cerrar ✕</button></div>
+  return <section className="panel" aria-label={`Entregas de ${assessment.title}`}><div className="section-title"><h4>Entregas: {assessment.title}</h4><span className="inline-actions"><button className="quiet" onClick={() => void load()}>Actualizar</button><button className="quiet" onClick={close}>Cerrar ✕</button></span></div>
     {reports?.simulated && <p className="muted"><span className="role-badge">SIMULADO</span> Similitud calculada por un proveedor de plagio simulado ({reports.provider}): compara por n-gramas con las entregas de otros estudiantes del curso. No es el servicio institucional.</p>}
     {notice && <p className="success" role="status">{notice}</p>}
     {!list ? <p role="status">Cargando entregas…</p> : <div className="table-scroll"><table><thead><tr><th>Estudiante</th><th>Entrega</th><th>Similitud</th><th>Nota</th><th>Acciones</th></tr></thead><tbody>

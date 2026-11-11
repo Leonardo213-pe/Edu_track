@@ -79,7 +79,8 @@ try {
   const attempt = forwarded => fetch(`${base}/api/identity/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': forwarded },
     body: JSON.stringify({ email: `nobody-${randomUUID()}@example.test`, password: 'wrong-password' }) });
   let limited = false;
-  for (let i = 0; i < 8 && !limited; i++) limited = (await attempt(`203.0.113.${i}`)).status === 429;
+  // The limiter is in memory per replica (2 replicas behind Nginx): up to 2×5 attempts may pass before a 429.
+  for (let i = 0; i < 14 && !limited; i++) limited = (await attempt(`203.0.113.${i}`)).status === 429;
   assert.ok(limited, 'login attempts are limited per real client even with spoofed X-Forwarded-For');
   console.log('Compose smoke passed: HTTPS (TLS 1.2+, HTTP redirect, HSTS), SPA, readiness, login, profile, user creation/list, role denial, server logout, roster denial, 2 replicas with metrics, SIMULATED registry, audit anchors, least-privilege DB role and proxy-aware rate limit.');
 } finally {

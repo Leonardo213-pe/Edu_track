@@ -1,5 +1,36 @@
 # Verificación de EduTrack LMS
 
+## Cierre del proyecto (partes A, B y C), 11 de noviembre de 2026
+
+Rama `feat/cierre-proyecto`, creada desde `main` tras fusionar por fast-forward `feat/fase8-colaboracion-analitica` (`21c1944`). Decisiones en [ADR-011](ADR/011-cierre-matriculas-tareas-operacion.md); resumen en [ENTREGA.md](ENTREGA.md). Durante el desarrollo se ejecutaron solo typecheck y pruebas unitarias en cada punto de guardado (commits `1ec46a5` parte A, `e1c78fd` parte B, `9788922` parte C). La verificación pesada se ejecutó **una vez al final**, en Windows 11 con Docker Desktop:
+
+| Verificación ejecutada | Resultado observado |
+| --- | --- |
+| `npm run check` | Código 0: 12 clientes Prisma, tipos, build, pruebas y arquitectura |
+| Backend unitario | **147/147**; cobertura V8 del núcleo (dominio + aplicación): statements 97,44 %, ramas 93,67 %, funciones 95,36 %, líneas 98,33 % |
+| Frontend | **28/28** (registro académico, monitoreo, entrega del estudiante, entregas/similitud/rúbrica del docente y los anteriores) |
+| Arquitectura AST | **7/7** con `submissions`, `plagiarism` y `administration`, grafo sin ciclos |
+| `npm run db:migrate` en `edutrack_test` | 10 migraciones aplicadas en PostgreSQL 17 desechable (puerto 55432) |
+| `npm run test:integration` | Primera ejecución: 45/48 — 3 fallos **de las propias pruebas** (orden textual de `id::text`, métricas compartidas entre suites, ranura de prueba > 40 caracteres). Corregidas las pruebas: las 2 suites afectadas 8/8 y luego la suite completa **48/48 en 9 archivos** (38 previas + 5 registro + 2 entregas/plagio + 3 operación) |
+| `docker compose up -d --build --wait` | db, migrate (10 migraciones + «Role edutrack_app: least privilege verified»), api, api2, web (certificado autofirmado generado), registry y mailpit sanos; HTTPS 200 y HTTP → 301 |
+| `npm run test:load` vía Nginx + 2 réplicas (`compose.loadtest.yaml`, BD desechable), caída de `api2` al 50 % | Primera ejecución abortada: HTTP 500 `TooManyConnections` (`max_connections` = 100 con 2 réplicas). Tras subir a 300: **2000/2000 HTTP 200** (todas al primer intento), **0 ACK perdidos**, p50 451 ms, p95 2318 ms, p99 2514 ms, 278,7 guardados/s, 200/200 calificados en 4,6 s; `api2` sana 13 s después de arrancarla |
+| Línea base sin caída (mismo entorno) | 2000/2000 HTTP 200, 0 ACK perdidos, p50 374 ms, **p95 867 ms**, p99 1032 ms, 435 guardados/s, 200/200 calificados en 3,7 s |
+| E2E Chromium (`COURSES_E2E`, `ASSESSMENTS_E2E`, `PLAYWRIGHT_BROWSERS_PATH=.tools/playwright`) | **1/1** en 1,9 min sobre HTTPS: fases 2-8 más entrega del estudiante, informe SIMULADO y descarga del docente, sincronización con el registro SIMULADO (correcta y con caída: 3 reintentos, ejecución fallida, alerta en la campana) y panel de monitoreo con 2/2 réplicas. La primera ejecución no arrancó porque faltaba la variable `PLAYWRIGHT_BROWSERS_PATH` |
+| `npm run test:smoke` (tras > 60 s de ventana de login) | Código 0: TLS 1.1 rechazado y TLS 1.2 aceptado, HSTS, redirección 301, SPA, login, usuarios, rechazos 403, 2 réplicas con métricas, registro SIMULADO, anclajes válidos, el rol `edutrack_app` recibe *permission denied* en UPDATE/DELETE de auditoría y DDL, y límite de login con 429 |
+| `node scripts/db-backup.mjs backup` y `verify` | Volcado de 143 011 bytes con SHA-256; restaurado en `edutrack_restore_check`: conteos iguales a la base viva, cadena de auditoría íntegra (26 entradas) y base temporal eliminada |
+
+La integración nueva verifica:
+- **Registro (proceso real del simulador por HTTP):** vínculo de la sección al crear el curso; altas, bajas e idempotencia con `source = REGISTRY_SYNC` y el actor de sistema; 403 a no ADMIN; 2 fallos transitorios superados con reintentos; caída con 3 reintentos, ejecución `FAILED`, proyección intacta, LMS operativo y alerta `SYSTEM_ALERT`; dos ejecuciones simultáneas (200 + 409); inmutabilidad de las ejecuciones y unicidad de la ranura.
+- **Entregas y plagio:** versiones y evento en la misma transacción, 3 informes asíncronos (copia > 70 % con su fuente, texto distinto < 20 %), cola vacía, listado, descarga y nota con rúbrica; 403 a no inscritos, docente ajeno y estudiantes en el informe; archivos rechazados; triggers de inmutabilidad; `DEADLINE_PASSED` con el reloj de la BD.
+- **Operación con el rol `edutrack_app`:** sin superusuario, propiedad ni DDL; *permission denied* en UPDATE/DELETE/TRUNCATE de auditoría y en el historial de migraciones; el anclaje coincide con la cabeza de la cadena y se verifica; métricas por plantilla de ruta (sin IDs) y panel ADMIN.
+
+Incidencias:
+- Vitest del frontend fallaba de forma intermitente con «failed to find the current suite» cuando la ruta del proyecto empezaba por `c:` en minúscula (dos instancias del módulo). Desde `C:\` funciona de forma estable.
+- jsdom no entrega el archivo por `FormData` ni valida `required` con `user.upload`: el formulario de entrega lee el archivo del input.
+- El limitador de peticiones es en memoria por réplica: el smoke necesita hasta 2 × 5 intentos para observar el 429 (documentado en ADR-011).
+
+Límites: el registro académico y el proveedor de plagio son **SIMULADOS**; el TLS es autofirmado; las 2 réplicas y PostgreSQL corren en una sola máquina. La carga es de 200 estudiantes, no de 3000, y no certifica EAC-01 ni el 99,5 % de EAC-02. No se ejecutó CI remoto. La base de pruebas se detiene al terminar.
+
 ## Fase 8: foros, notificaciones y analítica, 15 de noviembre de 2026
 
 Rama `feat/fase8-colaboracion-analitica`, creada desde `main` (`079d0af`). Decisiones en [ADR-010](ADR/010-colaboracion-analitica.md).

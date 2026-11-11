@@ -33,6 +33,7 @@ test.afterAll(async () => {
     if (cleaned.status !== 0) throw new Error('Unable to remove own course fixture files');
     // Projection rows of the QA course are removed; its append-only enrollment run log is kept by design.
     await pool.query('DELETE FROM enrollments.enrollments WHERE "courseId" IN (SELECT id FROM courses.courses WHERE "teacherId"=$1)', [teacher.id]);
+    await pool.query('DELETE FROM enrollments.sections WHERE "courseId" IN (SELECT id FROM courses.courses WHERE "teacherId"=$1)', [teacher.id]);
     await pool.query('DELETE FROM courses.courses WHERE "teacherId"=$1', [teacher.id]);
   }
   await pool.query('DELETE FROM identity.users WHERE id=ANY($1::uuid[]) OR email=$2', [ids, studentEmail]);

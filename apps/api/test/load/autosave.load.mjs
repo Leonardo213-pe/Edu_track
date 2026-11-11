@@ -66,7 +66,11 @@ for (let index = 0; index < 20; index++) await call('POST', `/assessments/banks/
   { type: 'MULTIPLE', statement: `Pregunta ${index}`, points: 1, options: [{ text: 'A', correct: true }, { text: 'B', correct: false }, { text: 'C', correct: true }, { text: 'D', correct: false }] });
 let quiz = (await call('POST', `/assessments/courses/${course.id}`, tokens.teacher, { title: 'Carga', instructions: '', type: 'QUIZ', weight: 10, dueAt: new Date(Date.now() + 3_600_000).toISOString(), durationMinutes: 60, questionCount: 10, bankId: bank.id })).body;
 quiz = (await call('POST', `/assessments/${quiz.id}/publish`, tokens.teacher, { revision: 0 })).body;
-const attempts = await pool(studentTokens, 50, async token => (await call('POST', `/exams/assessments/${quiz.id}/attempt`, token, {})).body);
+const attempts = await pool(studentTokens, 50, async token => {
+  const started = await call('POST', `/exams/assessments/${quiz.id}/attempt`, token, {});
+  if (started.status >= 300 || !started.body?.questions) throw new Error(`Setup failed: start attempt HTTP ${started.status} ${JSON.stringify(started.body)?.slice(0, 200)} (quiz ${quiz?.status ?? JSON.stringify(quiz).slice(0, 120)}, token ${token ? 'ok' : 'missing'})`);
+  return started.body;
+});
 
 // Measured phase: every student autosaves SAVES times at once (worst case: a whole section in the same second).
 const latencies = []; const statuses = {}; const firstTry = {}; const acked = new Map(); let retried = 0, done = 0, killed = false, restartTimer = null;

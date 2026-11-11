@@ -10,14 +10,14 @@
 | course-review | Espacio para eventual extracción de revisión hoy en courses | Sin fachada ficticia | Capacidad en courses; decisión/estado atómicos |
 | assessments | Bancos y preguntas, evaluaciones, ciclo de vida y snapshot publicado | ASSESSMENT_CATALOG: `gradable`, `findGradable` (sin respuestas) | Implementado fase 4 (ADR-008) |
 | exams | Intentos, preguntas sorteadas, respuestas versionadas, vencimiento y outbox | `AttemptFinalized.v1` (outbox); consume ASSESSMENT_CATALOG y GRADE_RECORDER | Implementado fase 5 (ADR-009) |
-| submissions | Tareas, entregas y metadatos de archivos | SubmissionReference, SubmissionReceived | Planificado |
+| submissions | Entregas de tareas con rúbrica, versiones inmutables y texto extraído | SubmissionReceived.v1 (outbox), SUBMISSION_EVENTS | Implementado (ADR-011) |
 | grading | Notas LMS (Strategy), versiones con motivo, promedios ponderados | `GRADING_SCALE` | Implementado fase 4 |
 | collaboration | Foros, hilos, mensajes, suscripciones, bandeja y recordatorios | `NOTIFICATION_SENDER` | Implementado fase 8 (ADR-010) |
 | analytics | Tiempo de conexión y reglas de riesgo por curso | HTTP para personal | Implementado fase 8 (ADR-010) |
-| enrollments | Proyección persistida de la lista oficial de inscritos por curso y bitácora de conciliaciones | ENROLLMENT_ACCESS: `EnrollmentAccess.isEnrolled/coursesOf`; HTTP ADMIN de conciliación | Proyección implementada (ADR-007); adaptador del Registro Académico CAR-09 pendiente |
-| plagiarism | Solicitudes y reportes del proveedor | PlagiarismReportAvailable | Planificado |
+| enrollments | Proyección persistida de la lista oficial de inscritos por curso y bitácora de conciliaciones | ENROLLMENT_ACCESS: `EnrollmentAccess.isEnrolled/coursesOf`; REGISTRY_SECTIONS, REGISTRY_SYNC_STATUS; HTTP ADMIN de conciliación y sincronización | Implementado: proyección (ADR-007) y sincronización nocturna con el registro SIMULADO (ADR-011) |
+| plagiarism | Informes de similitud del proveedor (puerto PlagiarismProvider; adaptador SIMULADO) | Consume SubmissionReceived.v1 | Implementado con proveedor SIMULADO (ADR-011) |
 | audit | Entradas de solo inserción con hash encadenado y verificación | Contrato BD `audit.append_entry`/`audit.record_row_change`, `AUDIT_ACTOR_SETTING` | Implementado fase 4 |
-| administration | Política operativa, monitoreo y vistas de salud | OperationalStatus | Planificado; salud básica en raíz técnica |
+| administration | Métricas por réplica, panel de monitoreo y alertas operativas | Consume EXAM_MONITOR, SUBMISSION_EVENTS, REGISTRY_SYNC_STATUS, AUDIT_ANCHOR_STATUS; usa NOTIFICATION_SENDER | Implementado (ADR-011) |
 
 ADR-006 sustituye la división persistente inicialmente propuesta: transición, evidencia y versiones pertenecen al agregado courses. Los espacios reservados no acceden a esas tablas. Archivos ya se guardan fuera de PostgreSQL con límites y descarga autorizada. S3/antivirus/conciliación operacional pendientes.
 

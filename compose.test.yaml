@@ -3,6 +3,8 @@ name: edutrack-test
 services:
   db-test:
     image: postgres:17-alpine
+    # Same connection budget as compose.yaml (two API replicas in the load test).
+    command: ["postgres", "-c", "max_connections=300"]
     environment:
       POSTGRES_DB: edutrack_test
       POSTGRES_USER: edutrack_test

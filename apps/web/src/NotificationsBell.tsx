@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { evaluationApi } from './assessments-api';
 
 interface Notification { id: string; type: string; title: string; body: string; createdAt: string; readAt: string | null }
-const icons: Record<string, string> = { FORUM_REPLY: '💬', FORUM_NEW_THREAD: '🧵', DUE_SOON: '⏰', GRADE: '📝' };
+const icons: Record<string, string> = { FORUM_REPLY: '💬', FORUM_NEW_THREAD: '🧵', DUE_SOON: '⏰', GRADE: '📝', SYSTEM_ALERT: '⚠️', SUBMISSION: '📎' };
 
 /** In-app inbox (CAR-07): forum replies, new threads, upcoming due dates and grades. Polls every 60 s. */
 export function NotificationsBell({ token }: { token: string }) {

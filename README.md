@@ -1,6 +1,8 @@
 # EduTrack LMS
 
-Fase 3: **cursos, contenidos académicos e inscritos**, integrada con autenticación/usuarios/roles de fase 2. Arquitectura hexagonal y monolito modular: un backend NestJS, React y PostgreSQL; Prisma solo en adaptadores. Archivos reales, versiones, revisión instruccional y completitud. El correo usa SMTP real; no hay contenidos simulados sustituyendo funcionalidades.
+Proyecto universitario cerrado: identidad, cursos y contenidos, banco de preguntas y calificación auditada, exámenes contra reloj, foros/notificaciones/riesgo, **matrículas nocturnas, tareas con control de plagio y monitoreo/operación** ([ADR-011](docs/ADR/011-cierre-matriculas-tareas-operacion.md)). Arquitectura hexagonal y monolito modular: un único backend NestJS (2 réplicas en Compose), React y PostgreSQL; Prisma solo en adaptadores.
+
+Las integraciones externas son **SIMULADAS** por autorización del usuario y están marcadas así en código, interfaz y documentación: el Registro Académico (`infra/registry`) y el proveedor de plagio (`SIMULADO-NGRAM-v1`). La «nube» es Docker Compose local. Qué es real y qué es simulado: [docs/ENTREGA.md](docs/ENTREGA.md).
 
 ## Requisitos y decisiones
 
@@ -25,7 +27,9 @@ npm run setup:env
 docker compose up --build -d --wait
 ```
 
-`setup:env` crea secretos aleatorios en `.env` y se niega a sobrescribirlo. No hay cuentas o contraseñas predeterminadas. Acceso web: **http://localhost:8080**. API: http://localhost:3000/api. Compose aplica las migraciones versionadas antes de iniciar la API. El volumen `edutrack_postgres_data` conserva los datos; `docker compose down` detiene el entorno sin borrarlos.
+`setup:env` crea secretos aleatorios en `.env` (incluidos `REGISTRY_API_KEY` y `APP_DB_PASSWORD`) y se niega a sobrescribirlo; en un `.env` anterior hay que añadir esas dos claves. No hay cuentas o contraseñas predeterminadas. Acceso web: **https://localhost:8443** (certificado local autofirmado: el navegador pedirá aceptarlo; http://localhost:8080 redirige). La API solo es accesible a través de Nginx (`/api`).
+
+Topología local: el servicio `migrate` aplica las migraciones con el propietario y aprovisiona el rol `edutrack_app` (sin propiedad ni UPDATE/DELETE en auditoría); `api` y `api2` son dos réplicas del mismo backend detrás de Nginx (TLS 1.2/1.3); `registry` es el Registro Académico **SIMULADO** (http://localhost:4010/health). Volúmenes: `postgres_data`, `course_files` (cursos y entregas), `audit_anchors` (anclaje del hash de auditoría, separado de la BD) y `tls_certs`. `docker compose down` detiene el entorno sin borrar volúmenes.
 
 En el `.env` de este equipo se configuró PostgreSQL en **5433** porque 5432 ya estaba ocupado. El generador usa 5432 como valor inicial en otros equipos; cambiar juntos `POSTGRES_PORT` y el puerto de `DATABASE_URL` si hay conflicto.
 
@@ -82,12 +86,16 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | `PORT`, `WEB_PORT` | API (3000) y frontend Compose (8080) |
 | `WEB_ORIGIN` | Origen frontend local (5173); Compose lo adapta a `WEB_PORT` |
 | `TRUST_PROXY` | Proxies confiables de Express para `X-Forwarded-For` (`loopback`, `uniquelocal`, CIDR o número de saltos; nunca `true`). Compose usa `uniquelocal`: Nginx sobrescribe la cabecera con la IP real y el límite se aplica por cliente |
-| `COURSE_STORAGE_ROOT` | Raíz de archivos de cursos (Compose: volumen `/app/storage/courses`) |
+| `COURSE_STORAGE_ROOT`, `SUBMISSION_STORAGE_ROOT` | Raíz de archivos de cursos y de entregas (Compose: volumen `/app/storage`) |
+| `REGISTRY_URL`, `REGISTRY_API_KEY`, `REGISTRY_RETRY_BASE_MS` | Registro Académico (**SIMULADO** en Compose) y base del backoff de los 3 reintentos; sin URL y clave la sincronización queda inactiva |
+| `APP_DB_PASSWORD`, `WEB_TLS_PORT` | Contraseña del rol de BD de mínimo privilegio `edutrack_app` (Compose) y puerto HTTPS (8443) |
+| `AUDIT_ANCHOR_DIR`, `AUDIT_ANCHOR_INTERVAL_MS` | Directorio (volumen separado) y periodo del anclaje del último hash de auditoría |
+| `ALERT_INTERVAL_MS`, `MONITOR_P95_MS`, `MONITOR_ERROR_RATE_PCT`, `MONITOR_OUTBOX_AGE_SECONDS`, `INSTANCE_ID` | Alertas operativas, umbrales del panel de monitoreo e identificador de réplica |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM` | SMTP y remitente: localhost:1025 por defecto, mailpit:1025 en Compose |
 | `SMTP_SECURE`, `SMTP_REQUIRE_TLS` | TLS implícito / STARTTLS; obligatorio para host remoto |
 | `SMTP_USER`, `SMTP_PASSWORD` | Autenticación opcional; configurar juntos solo en entorno |
 
-`.env.example` documenta las claves sin secretos válidos. En producción suministrar secretos desde el entorno/gestor, usar TLS ≥1.2, roles de BD de privilegios mínimos y migraciones mediante tarea de despliegue. Compose es un entorno local de una réplica; no certifica disponibilidad ni concurrencia institucional. No publicar sus puertos a Internet.
+`.env.example` documenta las claves sin secretos válidos. En producción suministrar secretos desde el entorno/gestor y un certificado institucional. Compose simula la topología (2 réplicas, TLS, rol mínimo) en una sola máquina; no certifica disponibilidad ni concurrencia institucional. No publicar sus puertos a Internet.
 
 ## API implementada
 
@@ -110,6 +118,11 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | * | `/api/exams/...` | Rendir cuestionarios, autoguardado y finalización: ver [EXAMENES.md](docs/EXAMENES.md) |
 | * | `/api/assessments/...`, `/api/grading/...`, `/api/audit/...` | Banco, evaluaciones, notas y auditoría: ver [EVALUACIONES.md](docs/EVALUACIONES.md) |
 | GET/POST | `/api/enrollments/courses/:id[/roster]` | ADMIN; inscritos y conciliación de la lista oficial ([ADR-007](docs/ADR/007-proyeccion-matriculas-cierre-fase3.md)) |
+| GET / POST | `/api/enrollments/registry` · `/api/enrollments/registry/sync` | ADMIN; estado del registro SIMULADO e historial / «Sincronizar ahora» (409 si hay otra en curso) |
+| POST / GET | `/api/submissions/assessments/:id` · `.../me` · `/api/submissions/files/:fileId` | Estudiante inscrito: entregar o reemplazar (multipart `file`) y ver su entrega; docente responsable/ADMIN: listado y descarga |
+| GET | `/api/plagiarism/assessments/:id` | Docente responsable o ADMIN; informes de similitud (proveedor SIMULADO) |
+| GET | `/api/administration/monitoring?minutes=15` | ADMIN; panel de rendimiento y operación |
+| GET | `/api/audit/anchors/verify` | ADMIN; compara los anclajes externos con la cadena de auditoría |
 
 DTO estrictos; 400 inválido, 401 credenciales/token/sesión, 403 permiso, 409 duplicado/versión/último ADMIN, 429 límite. Perfiles sin credenciales. JWT identifica usuario y sesión; rol/estado se obtienen de BD. Token en memoria del navegador; recargar requiere nuevo acceso. **Logout revoca la sesión en servidor**. Cambios de acceso o contraseña revocan las sesiones afectadas. Se protege al último ADMIN activo incluso con cambios simultáneos. El limitador HTTP sigue en memoria por instancia; almacenamiento compartido y proxy confiable pendientes antes de escalar. [API completa](docs/IDENTIDAD_API.md) y [ADR-005](docs/ADR/005-identidad-completa.md).
 
@@ -140,7 +153,7 @@ docker compose -f compose.test.yaml down
 Remove-Item Env:DATABASE_URL,Env:TEST_DATABASE_URL,Env:TEST_DB_PASSWORD
 ```
 
-En Bash: generar `TEST_DB_PASSWORD` con Node, exportar `TEST_DATABASE_URL` con la misma URL/puerto y ejecutar la migración con `DATABASE_URL="$TEST_DATABASE_URL" npm run db:migrate`. La base de pruebas vive en tmpfs; detener su contenedor la descarta. CI ejecuta los mismos tests contra un servicio PostgreSQL real. [Plan de carga](docs/PRUEBAS_CARGA.md): escenarios EAC-01/02/03, todavía pendientes del módulo de exámenes.
+En Bash: generar `TEST_DB_PASSWORD` con Node, exportar `TEST_DATABASE_URL` con la misma URL/puerto y ejecutar la migración con `DATABASE_URL="$TEST_DATABASE_URL" npm run db:migrate`. La base de pruebas vive en tmpfs; detener su contenedor la descarta. CI ejecuta los mismos tests contra un servicio PostgreSQL real. Carga: `npm run test:load` (un proceso) o, con 2 réplicas y caída de una, el modo Compose descrito en [PRUEBAS_CARGA.md](docs/PRUEBAS_CARGA.md) (`compose.loadtest.yaml`, siempre contra `edutrack_test`).
 
 Integración de fase 2 requiere Mailpit SMTP/API en 1025/8025: `docker compose up -d mailpit --wait`. CI lo proporciona como servicio real. Con Compose y compilación local, `npm run test:smoke` verifica SPA, Nginx, alta/listado, permisos y revocación al salir. Crea y elimina solo sus cuentas temporales.
 
@@ -149,8 +162,23 @@ Prueba en navegador real, con Compose actualizado y `.env` local apuntando a su 
 ```powershell
 $env:PLAYWRIGHT_BROWSERS_PATH = "$PWD\.tools\playwright"
 npx.cmd playwright install chromium
+$env:COURSES_E2E = 'true'; $env:ASSESSMENTS_E2E = 'true'
 npm.cmd run test:e2e
+# esperar > 60 s (login limitado por IP) antes de:
+npm.cmd run test:smoke
 ```
+
+El E2E y el smoke usan https://localhost:8443 (certificado autofirmado aceptado solo en estas pruebas locales). Con las variables académicas, el E2E recorre también la entrega de una tarea y su informe SIMULADO, la sincronización con el registro SIMULADO (correcta y con caída, alerta incluida) y el panel de monitoreo. Usa `REGISTRY_API_KEY` del `.env` para preparar la sección en el simulador.
+
+## Operación (local)
+
+```sh
+node scripts/db-backup.mjs backup                 # backups/edutrack-<UTC>.dump + .sha256 (fuera de Git)
+node scripts/db-backup.mjs verify backups/<archivo>.dump   # restaura en una BD temporal, compara conteos y verifica la auditoría
+node scripts/db-backup.mjs restore backups/<archivo>.dump --yes   # reemplaza la base viva: detener api/api2 antes
+```
+
+Registro SIMULADO: `PUT http://localhost:4010/admin/mode` con `{"mode":"down"}` o `{"failNext":2}` (cabecera `X-Registry-Key`) para demostrar reintentos y alertas; `{"mode":"up"}` lo restablece. Panel: menú ADMIN «Monitoreo» y «Registro académico».
 
 Requiere `npm run build`. Cubre administración, roles, perfil responsivo, logout y correo/recuperación hasta el acceso nuevo. Crea cuentas únicas de QA y elimina solo esas cuentas; no usar contra producción. Screenshots en `tmp/screens/`, fuera de Git. CI ejecuta unitarias/arquitectura e integración; Chromium se verifica localmente.
 

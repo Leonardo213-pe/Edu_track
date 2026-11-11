@@ -113,7 +113,7 @@ describe('nightly enrollment synchronization with the SIMULATED Academic Registr
     const id = (a.status === 200 ? a : b).body.id;
     await expect(db.query(`UPDATE enrollments.sync_runs SET error='x' WHERE id=$1`, [id])).rejects.toThrow(/immutable/);
     await expect(db.query('DELETE FROM enrollments.sync_runs WHERE id=$1', [id])).rejects.toThrow(/cannot be deleted/);
-    await expect(db.query(`INSERT INTO enrollments.sync_runs (id, trigger, slot, "actorId", status, "startedAt", "finishedAt") VALUES ($1, 'SCHEDULED', 'NIGHTLY:QA-${id}', $2, 'SUCCEEDED', now(), now()), ($3, 'SCHEDULED', 'NIGHTLY:QA-${id}', $2, 'SUCCEEDED', now(), now())`,
+    await expect(db.query(`INSERT INTO enrollments.sync_runs (id, trigger, slot, "actorId", status, "startedAt", "finishedAt") VALUES ($1, 'SCHEDULED', 'QA-${id.slice(0, 8)}', $2, 'SUCCEEDED', now(), now()), ($3, 'SCHEDULED', 'QA-${id.slice(0, 8)}', $2, 'SUCCEEDED', now(), now())`,
       [randomUUID(), actors.admin.id, randomUUID()])).rejects.toThrow(/sync_runs_slot_key/);
   });
 });

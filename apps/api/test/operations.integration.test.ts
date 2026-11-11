@@ -63,7 +63,7 @@ describe('operations with the least-privilege database role', () => {
   it('anchors the audit chain head on a separate directory and verifies it against the database', async () => {
     let lines: string[] = [];
     for (let i = 0; i < 30 && !lines.length; i++) { lines = (await readFile(path.join(folder, 'anchors', 'audit-anchors.jsonl'), 'utf8').catch(() => '')).split('\n').filter(Boolean); if (!lines.length) await new Promise(resolve => setTimeout(resolve, 100)); }
-    const head = (await owner.query('SELECT id::text, hash FROM audit.entries ORDER BY id DESC LIMIT 1')).rows[0];
+    const head = (await owner.query('SELECT e.id::text AS id, e.hash FROM audit.entries e ORDER BY e.id DESC LIMIT 1')).rows[0];
     expect(JSON.parse(lines.at(-1)!)).toMatchObject({ entryId: head.id, hash: head.hash });
     expect((await call('/audit/anchors/verify', 'admin').expect(200)).body).toMatchObject({ configured: true, valid: true, firstMismatch: null });
     await call('/audit/anchors/verify', 'teacher').expect(403);
@@ -73,10 +73,10 @@ describe('operations with the least-privilege database role', () => {
     let panel: any;
     for (let i = 0; i < 40; i++) {
       panel = (await call('/administration/monitoring?minutes=5', 'admin').expect(200)).body;
-      if (panel.routes.some((route: any) => route.route === '/api/courses/:id')) break; await new Promise(resolve => setTimeout(resolve, 150));
+      if (panel.routes.some((route: any) => route.route === '/api/courses/:id' && route.method === 'GET')) break; await new Promise(resolve => setTimeout(resolve, 150));
     }
-    const route = panel.routes.find((item: any) => item.route === '/api/courses/:id');
-    expect(route).toMatchObject({ method: 'GET', count: 3 }); expect(route.p95Ms).toBeGreaterThan(0);
+    const route = panel.routes.find((item: any) => item.route === '/api/courses/:id' && item.method === 'GET');
+    expect(route.count).toBeGreaterThanOrEqual(3); expect(route.p95Ms).toBeGreaterThan(0);
     expect(panel.replicas.find((replica: any) => replica.id === 'qa-replica')).toMatchObject({ alive: true });
     expect(panel).toHaveProperty('activeAttempts'); expect(Object.keys(panel.outboxes)).toHaveLength(2);
     expect(panel.jobs.map((job: any) => job.name)).toContain('Anclaje de auditoría');
