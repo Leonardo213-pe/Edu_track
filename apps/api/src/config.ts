@@ -1,5 +1,6 @@
 import type { MailConfig } from './modules/identity/infrastructure/notifications/smtp-reset-mailer';
-export interface AppConfig { databaseUrl: string; jwtSecret: string; port: number; webOrigin: string; mail: MailConfig }
+export interface AppConfig { databaseUrl: string; jwtSecret: string; port: number; webOrigin: string; mail: MailConfig;
+  academic?: { storageRoot?: string; enrollmentFixtureFile?: string; allowTestEnrollments?: boolean } }
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const databaseUrl = env.DATABASE_URL;
   const jwtSecret = env.JWT_SECRET;
@@ -18,6 +19,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   if (!['localhost', '127.0.0.1', 'mailpit'].includes(host) && !secure && !requireTLS) throw new Error('Remote SMTP requires TLS');
   const from = env.SMTP_FROM ?? 'EduTrack <noreply@edutrack.test>';
   if (/[\r\n]/.test(from)) throw new Error('Invalid SMTP_FROM');
-  return { databaseUrl, jwtSecret, port, webOrigin, mail: { host, port: smtpPort, from, secure, requireTLS,
+  return { databaseUrl, jwtSecret, port, webOrigin, academic: { storageRoot: env.COURSE_STORAGE_ROOT,
+    enrollmentFixtureFile: env.ENROLLMENT_FIXTURES_FILE, allowTestEnrollments: env.ALLOW_TEST_ENROLLMENTS === 'true' }, mail: { host, port: smtpPort, from, secure, requireTLS,
     user: env.SMTP_USER, password: env.SMTP_PASSWORD, webOrigin } };
 }

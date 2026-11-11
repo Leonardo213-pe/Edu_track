@@ -7,7 +7,119 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas = ["identity"]
+  schemas = ["identity", "courses"]
+}
+generator courseClient {
+  provider = "prisma-client"
+  output = "../src/modules/courses/infrastructure/persistence/generated"
+  moduleFormat = "cjs"
+  importFileExtension = "js"
+}
+
+enum CourseStatus {
+  BORRADOR
+  EN_REVISION
+  PUBLICADO
+  ARCHIVADO
+  @@schema("courses")
+}
+model Course {
+  id String @id @db.Uuid
+  code String @db.VarChar(40)
+  name String @db.VarChar(160)
+  description String
+  period String @db.VarChar(40)
+  teacherId String @db.Uuid
+  syllabus String @default("")
+  status CourseStatus @default(BORRADOR)
+  revision Int @default(0)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  units CourseUnit[]
+  reviews CourseReview[]
+  completions ContentCompletion[]
+  @@unique([code, period])
+  @@index([teacherId, status])
+  @@map("courses")
+  @@schema("courses")
+}
+model CourseUnit {
+  id String @id @db.Uuid
+  courseId String @db.Uuid
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title String @db.VarChar(160)
+  position Int
+  sessions CourseSession[]
+  @@unique([courseId, position])
+  @@map("units")
+  @@schema("courses")
+}
+model CourseSession {
+  id String @id @db.Uuid
+  unitId String @db.Uuid
+  unit CourseUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  title String @db.VarChar(160)
+  description String
+  position Int
+  materials CourseMaterial[]
+  @@unique([unitId, position])
+  @@map("sessions")
+  @@schema("courses")
+}
+model CourseMaterial {
+  id String @id @db.Uuid
+  sessionId String @db.Uuid
+  session CourseSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  title String @db.VarChar(160)
+  position Int
+  versions MaterialVersion[]
+  @@unique([sessionId, position])
+  @@map("materials")
+  @@schema("courses")
+}
+model MaterialVersion {
+  id String @id @db.Uuid
+  materialId String @db.Uuid
+  material CourseMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  number Int
+  kind String @db.VarChar(10)
+  filename String?
+  mimeType String?
+  storageKey String? @unique
+  size Int?
+  sha256 String? @db.VarChar(64)
+  url String?
+  authorId String @db.Uuid
+  createdAt DateTime @db.Timestamptz(3)
+  completions ContentCompletion[]
+  @@unique([materialId, number])
+  @@map("material_versions")
+  @@schema("courses")
+}
+model CourseReview {
+  id String @id @db.Uuid
+  courseId String @db.Uuid
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  actorId String @db.Uuid
+  decision String @db.VarChar(20)
+  observations String
+  revision Int
+  createdAt DateTime @db.Timestamptz(3)
+  @@index([courseId, createdAt])
+  @@map("reviews")
+  @@schema("courses")
+}
+model ContentCompletion {
+  userId String @db.Uuid
+  courseId String @db.Uuid
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  materialId String @db.Uuid
+  versionId String @db.Uuid
+  version MaterialVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  completedAt DateTime @default(now()) @db.Timestamptz(3)
+  @@id([userId, versionId])
+  @@index([userId, courseId])
+  @@map("completions")
+  @@schema("courses")
 }
 
 enum Role {

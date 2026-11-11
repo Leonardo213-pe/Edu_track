@@ -65,6 +65,14 @@ export class IdentityService implements IdentityDirectory {
   async hasPermission(id: string, permission: Permission): Promise<boolean> {
     const principal = await this.findPrincipal(id); return !!principal && permissionsFor(principal.role).includes(permission);
   }
+  async listInstructors(): Promise<{ id: string; displayName: string }[]> {
+    const result: { id: string; displayName: string }[] = [];
+    for (let offset = 0; ; offset += 100) {
+      const page = await this.users.list(100, offset);
+      result.push(...page.filter(user => user.active && user.role === 'TEACHER').map(user => ({ id: user.id, displayName: user.displayName })));
+      if (page.length < 100) return result;
+    }
+  }
   private async newUser(input: CreateUser): Promise<User> {
     const email = normalizeEmail(input.email); validatePassword(input.password);
     return new User(this.runtime.newId(), email, input.displayName, await this.passwords.hash(input.password), input.role, this.runtime.now());
