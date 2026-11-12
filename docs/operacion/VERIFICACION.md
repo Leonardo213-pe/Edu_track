@@ -1,8 +1,44 @@
 # Verificación de EduTrack LMS
 
+Registro de las verificaciones **realmente ejecutadas**, de la más reciente a la más antigua:
+
+- [Despliegue en AWS, 11-12 de noviembre de 2026](#despliegue-en-aws-11-12-de-noviembre-de-2026)
+- [Cierre del proyecto (partes A, B y C), 11 de noviembre de 2026](#cierre-del-proyecto-partes-a-b-y-c-11-de-noviembre-de-2026)
+- [Fase 8: foros, notificaciones y analítica, 15 de noviembre de 2026](#fase-8-foros-notificaciones-y-analítica-15-de-noviembre-de-2026)
+- [Fase 5: exámenes contra reloj, 14 de noviembre de 2026](#fase-5-exámenes-contra-reloj-14-de-noviembre-de-2026)
+- [Fase 4: evaluaciones, calificación y auditoría, 13 de noviembre de 2026](#fase-4-evaluaciones-calificación-y-auditoría-13-de-noviembre-de-2026)
+- [Cierre de fase 3 tras auditoría, 12 de noviembre de 2026](#cierre-de-fase-3-tras-auditoría-12-de-noviembre-de-2026)
+- [Etapa 3: Cursos y contenidos, 11 de noviembre de 2026](#etapa-3-cursos-y-contenidos-11-de-noviembre-de-2026)
+- [Fase 2: identidad completa, 11 de noviembre de 2026](#fase-2-identidad-completa-11-de-noviembre-de-2026)
+- [Histórico: primera entrega (antes de fase 2)](#histórico-primera-entrega-antes-de-fase-2)
+- [Resultados ejecutados](#resultados-ejecutados)
+- [Incidencias detectadas y resueltas](#incidencias-detectadas-y-resueltas)
+- [Límites de la evidencia](#límites-de-la-evidencia)
+
+## Despliegue en AWS, 11-12 de noviembre de 2026
+
+Decisiones en [ADR-012](../ADR/012-despliegue-aws.md); guía en [DESPLIEGUE_AWS.md](DESPLIEGUE_AWS.md). Preparación local (Windows 11, Docker Desktop):
+
+| Verificación ejecutada | Resultado observado |
+| --- | --- |
+| `npm run check` | Código 0: backend 148/148, frontend 28/28, arquitectura 7/7 |
+| Almacenamiento S3 contra SeaweedFS 3.85 local (las imágenes de MinIO ya no se descargan sin cuenta) | Primera ejecución 3/4: la prueba de anclajes chocó con un anclaje de una ejecución previa en el mismo bucket (defecto de la prueba, corregido). Después **4/4**: put/get/list/delete firmados, 403 con secreto incorrecto, validación de archivos, credenciales temporales tipo rol de tarea y anclajes ordenados |
+| `npm run test:integration` (BD desechable + S3 local) | **52/52 en 10 archivos** |
+| `cfn-lint` 1.60 sobre `infra/aws/edutrack.yaml` | 3 avisos iniciales (versión «17» obsoleta, `UpdateReplacePolicy`, ARN opcional), corregidos o justificados: 0 avisos |
+| `docker build` de la imagen API | La primera dejó el bundle de CA de RDS ilegible para `node` (permisos del directorio); corregido: 114 certificados legibles |
+| Compose reconstruido con el código nuevo | Descarga de una entrega existente HTTP 200; la siembra repetida responde «Demo data already present» y sin `SEED_DEMO=true` se niega |
+
+Despliegue real en la cuenta del proyecto (cuenta 445942110252), en orden:
+
+1. `us-east-1`: ECR, ECS, CloudFormation, EC2, RDS y Lightsail rechazados por una **SCP de la organización** de la cuenta. Un sondeo de solo lectura por región mostró que solo **`us-east-2`** está permitida; el despliegue pasó a Ohio.
+2. Script en Windows PowerShell 5.1: `ErrorActionPreference=Stop` convertía el stderr de aws/docker en error fatal, y la tubería alteraba el token de `docker login` (HTTP 400). Corregido (`Continue` con comprobación de códigos y tubería por `cmd`).
+3. Primer stack: RDS rechazó 7 días de retención de backups («máximo del plan gratuito»). La retención pasó a ser un parámetro (1 día).
+4. Segundo stack: el contenedor `migrate` aplicó las **10 migraciones en RDS**, pero el aprovisionamiento del rol falló: en RDS el propietario no es superusuario y no puede declarar `NOSUPERUSER/NOREPLICATION/NOBYPASSRLS`. Corregido declarando solo `LOGIN/PASSWORD` y ampliando la autoverificación; verificado en local (los 5 atributos en `f`) y en AWS con una tarea puntual: «least privilege verified» y «Nest application successfully started» con TLS verificado hacia RDS.
+5. Un stack creado sin rollback no admite reemplazar la definición de tarea, así que se recreó con la imagen corregida (`f968e3f`).
+
 ## Cierre del proyecto (partes A, B y C), 11 de noviembre de 2026
 
-Rama `feat/cierre-proyecto`, creada desde `main` tras fusionar por fast-forward `feat/fase8-colaboracion-analitica` (`21c1944`). Decisiones en [ADR-011](ADR/011-cierre-matriculas-tareas-operacion.md); resumen en [ENTREGA.md](ENTREGA.md). Durante el desarrollo se ejecutaron solo typecheck y pruebas unitarias en cada punto de guardado (commits `1ec46a5` parte A, `e1c78fd` parte B, `9788922` parte C). La verificación pesada se ejecutó **una vez al final**, en Windows 11 con Docker Desktop:
+Rama `feat/cierre-proyecto`, creada desde `main` tras fusionar por fast-forward `feat/fase8-colaboracion-analitica` (`21c1944`). Decisiones en [ADR-011](../ADR/011-cierre-matriculas-tareas-operacion.md); resumen en [ENTREGA.md](../proyecto/ENTREGA.md). Durante el desarrollo se ejecutaron solo typecheck y pruebas unitarias en cada punto de guardado (commits `1ec46a5` parte A, `e1c78fd` parte B, `9788922` parte C). La verificación pesada se ejecutó **una vez al final**, en Windows 11 con Docker Desktop:
 
 | Verificación ejecutada | Resultado observado |
 | --- | --- |
@@ -33,7 +69,7 @@ Límites: el registro académico y el proveedor de plagio son **SIMULADOS**; el 
 
 ## Fase 8: foros, notificaciones y analítica, 15 de noviembre de 2026
 
-Rama `feat/fase8-colaboracion-analitica`, creada desde `main` (`079d0af`). Decisiones en [ADR-010](ADR/010-colaboracion-analitica.md).
+Rama `feat/fase8-colaboracion-analitica`, creada desde `main` (`079d0af`). Decisiones en [ADR-010](../ADR/010-colaboracion-analitica.md).
 
 | Verificación ejecutada | Resultado |
 | --- | --- |
@@ -52,7 +88,7 @@ Incidencias:
 
 ## Fase 5: exámenes contra reloj, 14 de noviembre de 2026
 
-Rama `feat/fase5-examenes`, creada desde `feat/fase4-evaluaciones` (`8a08e08`). Decisiones en [ADR-009](ADR/009-examenes-concurrentes.md); guía en [EXAMENES.md](EXAMENES.md).
+Rama `feat/fase5-examenes`, creada desde `feat/fase4-evaluaciones` (`8a08e08`). Decisiones en [ADR-009](../ADR/009-examenes-concurrentes.md); guía en [EXAMENES.md](../guias/EXAMENES.md).
 
 | Verificación ejecutada | Resultado observado |
 | --- | --- |
@@ -86,7 +122,7 @@ Incidencias:
 
 ## Fase 4: evaluaciones, calificación y auditoría, 13 de noviembre de 2026
 
-Rama `feat/fase4-evaluaciones`, creada desde `fix/fase3-cierre` (`0ffdd96`, publicada en GitHub), sin merge. Decisiones en [ADR-008](ADR/008-evaluaciones-calificacion-auditoria.md); guía en [EVALUACIONES.md](EVALUACIONES.md).
+Rama `feat/fase4-evaluaciones`, creada desde `fix/fase3-cierre` (`0ffdd96`, publicada en GitHub), sin merge. Decisiones en [ADR-008](../ADR/008-evaluaciones-calificacion-auditoria.md); guía en [EVALUACIONES.md](../guias/EVALUACIONES.md).
 
 | Verificación ejecutada | Resultado observado |
 | --- | --- |
@@ -136,7 +172,7 @@ Rama `fix/fase3-cierre`, creada desde `feat/courses-content` (`7956bc6`), sin co
 - Archivos que se recibían antes de autorizar.
 - Prueba AST sin cobertura de la raíz ni de las tablas Prisma.
 
-Las correcciones se describen en [ADR-007](ADR/007-proyeccion-matriculas-cierre-fase3.md).
+Las correcciones se describen en [ADR-007](../ADR/007-proyeccion-matriculas-cierre-fase3.md).
 
 | Verificación ejecutada | Resultado observado |
 | --- | --- |

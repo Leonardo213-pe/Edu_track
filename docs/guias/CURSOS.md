@@ -10,7 +10,7 @@ Funcionalidades:
 - Historial de cambios.
 - Inscritos del curso, acceso estudiantil, completitud y seguimiento.
 
-La interfaz está en Cursos, Mis cursos o Revisión de cursos, según el rol. Decisiones de cierre de la fase en [ADR-007](ADR/007-proyeccion-matriculas-cierre-fase3.md).
+La interfaz está en Cursos, Mis cursos o Revisión de cursos, según el rol. Decisiones de cierre de la fase en [ADR-007](../ADR/007-proyeccion-matriculas-cierre-fase3.md).
 
 ## Uso
 
@@ -48,7 +48,7 @@ Los fixtures JSON de versiones anteriores (`ALLOW_TEST_ENROLLMENTS`, `ENROLLMENT
 
 ## Contrato HTTP
 
-OpenAPI 3.1: [openapi.json](openapi.json), servidor `/api`, Bearer JWT de fase 2.
+OpenAPI 3.1: [openapi.json](../openapi.json), servidor `/api`, Bearer JWT de fase 2.
 
 Cada mutación académica requiere el valor `revision` del GET más reciente, salvo el alta inicial y la completitud. En las eliminaciones se envía como query `?revision=`. Un 409 obliga a recargar y revisar; no se sobrescribe automáticamente.
 

@@ -2,7 +2,7 @@
 
 Estado: aceptado el 11 de noviembre de 2026 (rama `feat/cierre-proyecto`). Implementa CAR-09, CAR-05, CAR-10 y CAR-14; CU-04, CU-12, CU-14 y CU-15; EAC-02 y EAC-06 en entorno local. Mantiene el monolito modular con **un único backend desplegable** (ADR-001): todos los trabajos en segundo plano corren dentro de la API, seguros con varias réplicas.
 
-**Autorización del usuario (regla 1 de AGENTS.md):** al ser un proyecto universitario sin acceso al Registro Académico institucional, a un proveedor de plagio ni a una nube, esos servicios se **SIMULAN** con servicios propios que funcionan de punta a punta y están marcados como «SIMULADO» en el código, la interfaz y la documentación. La «nube» es Docker Compose local. Esta diferencia con el informe queda registrada aquí y en [ENTREGA.md](../ENTREGA.md).
+**Autorización del usuario (regla 1 de AGENTS.md):** al ser un proyecto universitario sin acceso al Registro Académico institucional, a un proveedor de plagio ni a una nube, esos servicios se **SIMULAN** con servicios propios que funcionan de punta a punta y están marcados como «SIMULADO» en el código, la interfaz y la documentación. La «nube» es Docker Compose local. Esta diferencia con el informe queda registrada aquí y en [ENTREGA.md](../proyecto/ENTREGA.md).
 
 ## Parte A — Matrículas nocturnas (CAR-09, EAC-06, CU-12)
 

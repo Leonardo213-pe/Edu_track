@@ -56,7 +56,7 @@ Estado: aceptado el 14 de noviembre de 2026. Implementa CU-03 (tabla 10, fig. 6)
   - p50 485 ms, p95 724 ms, p99 859 ms;
   - 200/200 intentos calificados en 5,3 s.
 
-  No certifica EAC-01 (3000 concurrentes, p95 ≤ 1 s) ni EAC-02 (99,5 %, recuperación ≤ 5 min). Ambos requieren varias réplicas, PostgreSQL gestionado y la red real ([PRUEBAS_CARGA.md](../PRUEBAS_CARGA.md)).
+  No certifica EAC-01 (3000 concurrentes, p95 ≤ 1 s) ni EAC-02 (99,5 %, recuperación ≤ 5 min). Ambos requieren varias réplicas, PostgreSQL gestionado y la red real ([PRUEBAS_CARGA.md](../operacion/PRUEBAS_CARGA.md)).
 - El reinicio de la API a mitad del examen se probó en integración: las respuestas confirmadas se conservan y el vencimiento no cambia.
 - Pendiente:
   - barajar las opciones por intento;

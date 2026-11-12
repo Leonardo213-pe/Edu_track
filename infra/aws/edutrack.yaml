@@ -3,7 +3,7 @@ Description: >-
   EduTrack LMS on AWS following the report (fig. 12): CloudFront + S3 for the SPA, Application Load Balancer, ECS
   Fargate with 2 replicas of the single deployable backend (ADR-001: no separate Worker), RDS PostgreSQL, versioned
   S3 for materials/submissions/audit anchors and CloudWatch Logs. No ElastiCache (ADR-009) and no SQS (transactional
-  outbox in PostgreSQL). The Academic Registry is the SIMULATED one, as an internal service. See docs/DESPLIEGUE_AWS.md.
+  outbox in PostgreSQL). The Academic Registry is the SIMULATED one, as an internal service. See docs/operacion/DESPLIEGUE_AWS.md.
 
 Parameters:
   ApiImageUri:

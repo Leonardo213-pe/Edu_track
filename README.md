@@ -2,11 +2,11 @@
 
 Proyecto universitario cerrado: identidad, cursos y contenidos, banco de preguntas y calificación auditada, exámenes contra reloj, foros/notificaciones/riesgo, **matrículas nocturnas, tareas con control de plagio y monitoreo/operación** ([ADR-011](docs/ADR/011-cierre-matriculas-tareas-operacion.md)). Arquitectura hexagonal y monolito modular: un único backend NestJS (2 réplicas en Compose), React y PostgreSQL; Prisma solo en adaptadores.
 
-Las integraciones externas son **SIMULADAS** por autorización del usuario y están marcadas así en código, interfaz y documentación: el Registro Académico (`infra/registry`) y el proveedor de plagio (`SIMULADO-NGRAM-v1`). La «nube» es Docker Compose local. Qué es real y qué es simulado: [docs/ENTREGA.md](docs/ENTREGA.md).
+Las integraciones externas son **SIMULADAS** por autorización del usuario y están marcadas así en código, interfaz y documentación: el Registro Académico (`infra/registry`) y el proveedor de plagio (`SIMULADO-NGRAM-v1`). La «nube» es Docker Compose local. Qué es real y qué es simulado: [docs/proyecto/ENTREGA.md](docs/proyecto/ENTREGA.md).
 
 ## Requisitos y decisiones
 
-Fuente: [informe original](docs/Informe_Trabajo_Final_EduTrack_LMS.pdf). [Análisis y diferencias](docs/ANALISIS_REQUISITOS.md), [arquitectura](docs/ARCHITECTURE.md), [módulos](docs/MODULOS.md), [ADR](docs/ADR/), [plan](docs/PLAN_DESARROLLO.md), [trazabilidad](docs/TRAZABILIDAD.md), [C4](docs/diagrams/C4.md), [4+1](docs/diagrams/MODELO_4_MAS_1.md) y [verificación real](docs/VERIFICACION.md).
+Fuente: [informe original](docs/Informe_Trabajo_Final_EduTrack_LMS.pdf). [Análisis y diferencias](docs/ANALISIS_REQUISITOS.md), [arquitectura](docs/ARCHITECTURE.md), [módulos](docs/proyecto/MODULOS.md), [ADR](docs/ADR), [plan](docs/proyecto/PLAN_DESARROLLO.md), [trazabilidad](docs/proyecto/TRAZABILIDAD.md), [C4](docs/diagrams/C4.md), [4+1](docs/diagrams/MODELO_4_MAS_1.md) y [verificación real](docs/operacion/VERIFICACION.md).
 
 NestJS 11, React 19, TypeScript 5.9, Prisma 7, Vite 7, PostgreSQL 17 y Node.js 24 LTS. `package-lock.json` fija las versiones exactas. Se prioriza una combinación comprobada; no se cambia de major automáticamente. La elección TypeScript y el backend único sustituyen Java/Spring y API/Worker del PDF por instrucción del usuario (ADR-001/002).
 
@@ -114,9 +114,10 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | GET | `/api/identity/security-events` | ADMIN; registro paginado de seguridad |
 | GET | `/api/health/live` | Liveness del proceso |
 | GET | `/api/health/ready` | Conectividad con BD, 503 si falla |
-| * | `/api/courses/...` | Cursos, contenidos, historial y avance: ver [CURSOS.md](docs/CURSOS.md) |
-| * | `/api/exams/...` | Rendir cuestionarios, autoguardado y finalización: ver [EXAMENES.md](docs/EXAMENES.md) |
-| * | `/api/assessments/...`, `/api/grading/...`, `/api/audit/...` | Banco, evaluaciones, notas y auditoría: ver [EVALUACIONES.md](docs/EVALUACIONES.md) |
+| * | `/api/courses/...` | Cursos, contenidos, historial y avance: ver [CURSOS.md](docs/guias/CURSOS.md) |
+| * | `/api/exams/...` | Rendir cuestionarios, autoguardado y finalización: ver [EXAMENES.md](docs/guias/EXAMENES.md) |
+| * | `/api/assessments/...`, `/api/grading/...`, `/api/audit/...` | Banco, evaluaciones, notas y auditoría: ver [EVALUACIONES.md](docs/guias/EVALUACIONES.md) |
+| * | `/api/collaboration/...`, `/api/analytics/...` | Foros, notificaciones y riesgo ([ADR-010](docs/ADR/010-colaboracion-analitica.md)) |
 | GET/POST | `/api/enrollments/courses/:id[/roster]` | ADMIN; inscritos y conciliación de la lista oficial ([ADR-007](docs/ADR/007-proyeccion-matriculas-cierre-fase3.md)) |
 | GET / POST | `/api/enrollments/registry` · `/api/enrollments/registry/sync` | ADMIN; estado del registro SIMULADO e historial / «Sincronizar ahora» (409 si hay otra en curso) |
 | POST / GET | `/api/submissions/assessments/:id` · `.../me` · `/api/submissions/files/:fileId` | Estudiante inscrito: entregar o reemplazar (multipart `file`) y ver su entrega; docente responsable/ADMIN: listado y descarga |
@@ -124,7 +125,9 @@ Web en http://localhost:5173 con proxy a la API 3000. `dev:api` observa JavaScri
 | GET | `/api/administration/monitoring?minutes=15` | ADMIN; panel de rendimiento y operación |
 | GET | `/api/audit/anchors/verify` | ADMIN; compara los anclajes externos con la cadena de auditoría |
 
-DTO estrictos; 400 inválido, 401 credenciales/token/sesión, 403 permiso, 409 duplicado/versión/último ADMIN, 429 límite. Perfiles sin credenciales. JWT identifica usuario y sesión; rol/estado se obtienen de BD. Token en memoria del navegador; recargar requiere nuevo acceso. **Logout revoca la sesión en servidor**. Cambios de acceso o contraseña revocan las sesiones afectadas. Se protege al último ADMIN activo incluso con cambios simultáneos. El limitador HTTP sigue en memoria por instancia; almacenamiento compartido y proxy confiable pendientes antes de escalar. [API completa](docs/IDENTIDAD_API.md) y [ADR-005](docs/ADR/005-identidad-completa.md).
+[openapi.json](docs/openapi.json) describe identidad, cursos, matrículas, evaluaciones, notas, auditoría y exámenes; las rutas posteriores (colaboración, analítica, entregas, plagio, registro, monitoreo) se documentan en esta tabla y en sus ADR.
+
+DTO estrictos; 400 inválido, 401 credenciales/token/sesión, 403 permiso, 409 duplicado/versión/último ADMIN, 429 límite. Perfiles sin credenciales. JWT identifica usuario y sesión; rol/estado se obtienen de BD. Token en memoria del navegador; recargar requiere nuevo acceso. **Logout revoca la sesión en servidor**. Cambios de acceso o contraseña revocan las sesiones afectadas. Se protege al último ADMIN activo incluso con cambios simultáneos. El limitador HTTP sigue en memoria por instancia; almacenamiento compartido y proxy confiable pendientes antes de escalar. [API completa](docs/guias/IDENTIDAD_API.md) y [ADR-005](docs/ADR/005-identidad-completa.md).
 
 ## Recuperación por correo
 
@@ -153,7 +156,7 @@ docker compose -f compose.test.yaml down
 Remove-Item Env:DATABASE_URL,Env:TEST_DATABASE_URL,Env:TEST_DB_PASSWORD
 ```
 
-En Bash: generar `TEST_DB_PASSWORD` con Node, exportar `TEST_DATABASE_URL` con la misma URL/puerto y ejecutar la migración con `DATABASE_URL="$TEST_DATABASE_URL" npm run db:migrate`. La base de pruebas vive en tmpfs; detener su contenedor la descarta. CI ejecuta los mismos tests contra un servicio PostgreSQL real. Carga: `npm run test:load` (un proceso) o, con 2 réplicas y caída de una, el modo Compose descrito en [PRUEBAS_CARGA.md](docs/PRUEBAS_CARGA.md) (`compose.loadtest.yaml`, siempre contra `edutrack_test`).
+En Bash: generar `TEST_DB_PASSWORD` con Node, exportar `TEST_DATABASE_URL` con la misma URL/puerto y ejecutar la migración con `DATABASE_URL="$TEST_DATABASE_URL" npm run db:migrate`. La base de pruebas vive en tmpfs; detener su contenedor la descarta. CI ejecuta los mismos tests contra un servicio PostgreSQL real. Carga: `npm run test:load` (un proceso) o, con 2 réplicas y caída de una, el modo Compose descrito en [PRUEBAS_CARGA.md](docs/operacion/PRUEBAS_CARGA.md) (`compose.loadtest.yaml`, siempre contra `edutrack_test`).
 
 Integración de fase 2 requiere Mailpit SMTP/API en 1025/8025: `docker compose up -d mailpit --wait`. CI lo proporciona como servicio real. Con Compose y compilación local, `npm run test:smoke` verifica SPA, Nginx, alta/listado, permisos y revocación al salir. Crea y elimina solo sus cuentas temporales.
 
@@ -172,7 +175,7 @@ El E2E y el smoke usan https://localhost:8443 (certificado autofirmado aceptado 
 
 ## Despliegue en AWS
 
-Arquitectura del informe (CloudFront + S3, ALB, ECS Fargate con 2 réplicas, RDS, S3 versionado) con la plantilla `infra/aws/edutrack.yaml` y el script `scripts/aws/deploy.ps1`. Guía, costos y límites: [docs/DESPLIEGUE_AWS.md](docs/DESPLIEGUE_AWS.md) y [ADR-012](docs/ADR/012-despliegue-aws.md). Data demo ficticia: `SEED_DEMO=true node apps/api/scripts/seed-demo.cjs <contraseña>` (en Compose, dentro del contenedor `api`).
+Arquitectura del informe (CloudFront + S3, ALB, ECS Fargate con 2 réplicas, RDS, S3 versionado) con la plantilla `infra/aws/edutrack.yaml` y el script `scripts/aws/deploy.ps1`. Guía, costos y límites: [docs/operacion/DESPLIEGUE_AWS.md](docs/operacion/DESPLIEGUE_AWS.md) y [ADR-012](docs/ADR/012-despliegue-aws.md). Data demo ficticia: `SEED_DEMO=true node apps/api/scripts/seed-demo.cjs <contraseña>` (en Compose, dentro del contenedor `api`).
 
 ## Operación (local)
 
@@ -188,16 +191,18 @@ Requiere `npm run build`. Cubre administración, roles, perfil responsivo, logou
 
 ## Alcance de esta entrega
 
-Implementados CAR-13/CU-13 para esta fase: alta/listado/edición administrativa, cuatro roles, activación/desactivación, perfil editable, acceso/salida revocable, cambio/recuperación de contraseña, eventos de seguridad y panel por rol. Registro administrativo, sin alta pública abierta. Cada cuenta tiene un rol. CLI solo para el primer ADMIN.
+Proyecto cerrado: los 14 requisitos CAR del informe están implementados o documentados con su alcance en la [matriz de trazabilidad](docs/proyecto/TRAZABILIDAD.md). Resumen de qué es real y qué está SIMULADO: [ENTREGA.md](docs/proyecto/ENTREGA.md).
 
-Cursos/Contenidos: CAR-01/02/03 implementados en un contexto académico cohesivo (ADR-006/007), con State (transiciones, editabilidad y visibilidad), Composite (avance y duración), sílabo, unidades/sesiones con duración, orden, eliminación en borradores nunca publicados, archivos/versiones, historial de cambios de solo inserción, revisión/aprobación y progreso por estudiante. No se ha avanzado a Evaluaciones. Ver [guía de Cursos](docs/CURSOS.md), [OpenAPI](docs/openapi.json), [diagramas](docs/diagrams/CURSOS.md), [plan](docs/PLAN_DESARROLLO.md) y [verificación](docs/VERIFICACION.md).
+| Área | Requisitos | Decisiones | Guía |
+| --- | --- | --- | --- |
+| Identidad: usuarios, cuatro roles, sesiones revocables, recuperación por correo, eventos de seguridad | CAR-13 | [ADR-005](docs/ADR/005-identidad-completa.md) | [IDENTIDAD_API](docs/guias/IDENTIDAD_API.md) |
+| Cursos: sílabo, unidades/sesiones, materiales versionados, revisión instruccional, avance | CAR-01/02/03 | [ADR-006](docs/ADR/006-cursos-contenidos.md), [ADR-007](docs/ADR/007-proyeccion-matriculas-cierre-fase3.md) | [CURSOS](docs/guias/CURSOS.md) |
+| Banco de preguntas, evaluaciones, calificación con Strategy, auditoría inmutable | CAR-04/06/12 | [ADR-008](docs/ADR/008-evaluaciones-calificacion-auditoria.md) | [EVALUACIONES](docs/guias/EVALUACIONES.md) |
+| Exámenes contra reloj con autoguardado durable y reconexión | CAR-04/11 | [ADR-009](docs/ADR/009-examenes-concurrentes.md) | [EXAMENES](docs/guias/EXAMENES.md) |
+| Foros, notificaciones, analítica de riesgo por reglas | CAR-07/08 | [ADR-010](docs/ADR/010-colaboracion-analitica.md) | — |
+| Matrículas nocturnas (registro SIMULADO), tareas con plagio (proveedor SIMULADO), monitoreo y operación | CAR-05/09/10/14 | [ADR-011](docs/ADR/011-cierre-matriculas-tareas-operacion.md) | [PRUEBAS_CARGA](docs/operacion/PRUEBAS_CARGA.md) |
+| Despliegue en AWS (CloudFront, ALB, ECS Fargate, RDS, S3) | RES-07 | [ADR-012](docs/ADR/012-despliegue-aws.md) | [DESPLIEGUE_AWS](docs/operacion/DESPLIEGUE_AWS.md) |
 
-Docentes gestionan solo cursos propios; diseñador aprueba/rechaza; ADMIN administra; estudiantes solo publicado+matriculado. La inscripción proviene de la **lista oficial** del Registro Académico, guardada como proyección persistida (`enrollments`). Hasta que exista el adaptador CAR-09, el ADMIN la sincroniza por curso en «Inscritos»; sin inscripción activa el estudiante no ve el curso. Archivos en volumen `edutrack_course_files`, máximo 25 MiB; PDF/DOCX/PPTX/TXT/MP4/WebM. No borrar volúmenes al actualizar. Para editar publicado, volver explícitamente a borrador: deja de ser visible hasta nueva aprobación.
+Documentación: `docs/guias` (uso y API por área), `docs/proyecto` (plan, trazabilidad, módulos, entrega), `docs/operacion` (despliegue, carga, verificación ejecutada), `docs/ADR` (decisiones) y `docs/diagrams`. La evidencia de cada verificación está en [VERIFICACION.md](docs/operacion/VERIFICACION.md).
 
-Evaluaciones (fase 4, [ADR-008](docs/ADR/008-evaluaciones-calificacion-auditoria.md)): banco de preguntas, evaluaciones con snapshot inmutable y sorteo, calificación por rúbrica (Strategy), promedios ponderados 0–20 y auditoría inmutable con hash encadenado para notas y evaluaciones publicadas; consulta y verificación por ADMIN.
-
-Exámenes (fase 5, [ADR-009](docs/ADR/009-examenes-concurrentes.md), [EXAMENES.md](docs/EXAMENES.md)): intento contra reloj con vencimiento del servidor, autoguardado idempotente con ACK tras commit, reconexión con cola local, cierre por tiempo y calificación automática auditada vía outbox.
-
-Colaboración y analítica (fase 8, [ADR-010](docs/ADR/010-colaboracion-analitica.md)): foros por curso/unidad con moderación, notificaciones (respuestas, vencimientos, notas) y panel de seguimiento con riesgo explicable por reglas.
-
-Pendientes: S3/antivirus/conciliación y retención de archivos, adaptador SOAP/REST de matrículas (CAR-09), conexión/riesgo y resto del plan. TLS producción, MFA/SSO, refresh y límite distribuido siguen como mejoras operativas. Ramas: `main` contiene solo la fase 1; fase 2 en `feat/identity-complete`, fase 3 en `feat/courses-content` y su cierre posterior a la auditoría en `fix/fase3-cierre`. Ninguna se fusiona automáticamente; la fase 4 debe partir de la rama de cierre o de `main` una vez integradas.
+Pendientes para producción: contratos reales del Registro Académico y del proveedor de plagio, limitador de peticiones compartido entre réplicas, correo/push de notificaciones, MFA/SSO y prueba de carga de 3000 estudiantes en un entorno representativo. Todo el trabajo está integrado en `main`.

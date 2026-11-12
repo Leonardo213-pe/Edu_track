@@ -2,8 +2,6 @@
   {"id":"identity","status":"implemented","owns":"users, roles, credentials, sessions, password recovery and security events","dependencies":[]},
   {"id":"courses","status":"implemented","owns":"courses, syllabus, units, sessions and durations, material versions, lifecycle, review decisions, course history, content completion","dependencies":["identity","enrollments"]},
   {"id":"enrollments","status":"implemented","owns":"local projection of the official enrollment list per course, reconciliation runs, registry section links and nightly Academic Registry synchronization (adapter + scheduler; registry SIMULATED locally)","dependencies":["identity","audit"]},
-  {"id":"materials","status":"reserved-extraction","owns":"no current data; capability owned by courses per ADR-006","dependencies":[]},
-  {"id":"course-review","status":"reserved-extraction","owns":"no current data; capability owned by courses per ADR-006","dependencies":[]},
   {"id":"assessments","status":"implemented","owns":"question banks, assessment definitions, lifecycle and frozen question snapshots; random draw","dependencies":["identity","courses","enrollments","audit"]},
   {"id":"exams","status":"implemented","owns":"attempts with server deadline, drawn questions without answers, versioned idempotent answers, AttemptFinalized outbox, expiry sweeper","dependencies":["identity","courses","enrollments","assessments","grading"]},
   {"id":"submissions","status":"implemented","owns":"file submissions of rubric assignments with immutable versions, server deadline, extracted text and SubmissionReceived outbox","dependencies":["identity","courses","enrollments","assessments","grading","collaboration"]},

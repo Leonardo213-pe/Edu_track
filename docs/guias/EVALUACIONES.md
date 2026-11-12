@@ -1,6 +1,6 @@
 # Evaluaciones, calificaciones y auditoría — fase 4
 
-Decisiones en [ADR-008](ADR/008-evaluaciones-calificacion-auditoria.md).
+Decisiones en [ADR-008](../ADR/008-evaluaciones-calificacion-auditoria.md).
 
 ## Uso en la interfaz
 
@@ -22,7 +22,7 @@ Reglas:
 
 ## API
 
-Todas las rutas requieren Bearer JWT. OpenAPI: [openapi.json](openapi.json).
+Todas las rutas requieren Bearer JWT. OpenAPI: [openapi.json](../openapi.json).
 
 | Método / ruta (`/api`) | Permiso / función |
 | --- | --- |

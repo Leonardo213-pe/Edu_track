@@ -1,6 +1,6 @@
 # Exámenes en línea — fase 5
 
-Decisiones en [ADR-009](ADR/009-examenes-concurrentes.md). Requiere un cuestionario **publicado** (fase 4, [EVALUACIONES.md](EVALUACIONES.md)) en un curso publicado con el estudiante inscrito.
+Decisiones en [ADR-009](../ADR/009-examenes-concurrentes.md). Requiere un cuestionario **publicado** (fase 4, [EVALUACIONES.md](EVALUACIONES.md)) en un curso publicado con el estudiante inscrito.
 
 ## Uso
 

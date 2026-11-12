@@ -2,7 +2,7 @@
 
 ## Estructura ejecutable
 
-Un repositorio npm workspaces, **un backend desplegable**, una SPA estática y PostgreSQL. Cada contexto de negocio contiene su hexágono. Identidad y Cursos están implementados; los demás mantienen alcance planificado. ADR-006 consolida materiales/revisión en el agregado académico, sin módulos ficticios ni transacciones cruzadas. La unidad de despliegue no cambia.
+Un repositorio npm workspaces, **un backend desplegable**, una SPA estática y PostgreSQL. Cada contexto de negocio contiene su hexágono. Los 12 módulos de negocio están implementados (`docs/modules.json`). ADR-006 consolidó materiales y revisión dentro de `courses`; los módulos reservados vacíos `materials` y `course-review` se retiraron al cerrar el proyecto. La unidad de despliegue no cambia.
 
 ```text
 apps/api/src/
@@ -52,7 +52,7 @@ Recuperación con secreto opaco 256 bits, SHA-256, vencimiento 15 min, un uso y 
 
 `courses` posee curso/sílabo/unidades/sesiones/materiales/versiones/revisiones y completitud básica. Dominio puro con State y Composite; aplicación con cinco puertos, PostgreSQL/local y contratos públicos de identidad/matrícula. Revisión optimista y lock por curso hacen atómicos estado/estructura/decisión. PUBLICADO es ineditable: volver a BORRADOR retira publicación hasta nueva aprobación. ARCHIVADO terminal. Estudiantes solo publicado+matrícula, incluidas descargas.
 
-Archivos reales en volumen privado, claves UUID, firma/MIME/tamaño, SHA-256, versiones sin UPDATE y descargas autenticadas. Enlaces HTTP(S). S3 futuro por puerto; no integración ficticia. Progreso por versión vigente completada, no heredado al versionar. Reporte de actividad no equivale a padrón total ni riesgo académico. Matrícula consultada al contrato `EnrollmentAccess` (proyección persistida, sin fixtures). Agregado encapsulado (`DeepReadonly`, `snapshot`), State con editabilidad/visibilidad, Composite con duración, historial `courses.changes` de solo inserción y eliminación solo en borradores nunca publicados (ADR-007). Ver [ADR-006](ADR/006-cursos-contenidos.md), [Cursos](CURSOS.md), [OpenAPI](openapi.json), [diagramas](diagrams/CURSOS.md).
+Archivos reales en volumen privado, claves UUID, firma/MIME/tamaño, SHA-256, versiones sin UPDATE y descargas autenticadas. Enlaces HTTP(S). Los bytes viven en un almacén de objetos de plataforma: sistema de archivos en local o S3 en AWS (ADR-012). Progreso por versión vigente completada, no heredado al versionar. Reporte de actividad no equivale a padrón total ni riesgo académico. Matrícula consultada al contrato `EnrollmentAccess` (proyección persistida, sin fixtures). Agregado encapsulado (`DeepReadonly`, `snapshot`), State con editabilidad/visibilidad, Composite con duración, historial `courses.changes` de solo inserción y eliminación solo en borradores nunca publicados (ADR-007). Ver [ADR-006](ADR/006-cursos-contenidos.md), [Cursos](guias/CURSOS.md), [OpenAPI](openapi.json), [diagramas](diagrams/CURSOS_DIAGRAMAS.md).
 
 ## Matrículas implementado (proyección)
 
@@ -64,11 +64,11 @@ Archivos reales en volumen privado, claves UUID, firma/MIME/tamaño, SHA-256, ve
 
 ## Evaluaciones, calificación y auditoría implementadas (fase 4)
 
-`assessments` posee bancos, preguntas, evaluaciones (State BORRADOR/PUBLICADA/CERRADA) y el snapshot inmutable de preguntas al publicar; las respuestas correctas nunca salen hacia estudiantes. `grading` aplica Strategy (automática y rúbrica), notas versionadas con motivo y promedios ponderados en centésimas enteras. `audit` posee `audit.entries` con hash SHA-256 encadenado; su contrato de escritura es la función `audit.append_entry`, invocada por triggers en `grading.grades` y `assessments.assessments`, de modo que cada cambio auditable y su entrada se confirman en la misma transacción (el actor se declara con `set_config('edutrack.actor', …, true)`). Un guard Bearer genérico en `src/platform/http` autentica mediante el contrato público de identidad. Ver [ADR-008](ADR/008-evaluaciones-calificacion-auditoria.md) y [EVALUACIONES.md](EVALUACIONES.md).
+`assessments` posee bancos, preguntas, evaluaciones (State BORRADOR/PUBLICADA/CERRADA) y el snapshot inmutable de preguntas al publicar; las respuestas correctas nunca salen hacia estudiantes. `grading` aplica Strategy (automática y rúbrica), notas versionadas con motivo y promedios ponderados en centésimas enteras. `audit` posee `audit.entries` con hash SHA-256 encadenado; su contrato de escritura es la función `audit.append_entry`, invocada por triggers en `grading.grades` y `assessments.assessments`, de modo que cada cambio auditable y su entrada se confirman en la misma transacción (el actor se declara con `set_config('edutrack.actor', …, true)`). Un guard Bearer genérico en `src/platform/http` autentica mediante el contrato público de identidad. Ver [ADR-008](ADR/008-evaluaciones-calificacion-auditoria.md) y [EVALUACIONES.md](guias/EVALUACIONES.md).
 
 ## Exámenes implementados (fase 5)
 
-`exams` posee intentos (vencimiento fijado por el servidor, preguntas sorteadas sin respuestas), respuestas por intento/pregunta con versión monotónica y un outbox transaccional. El guardado se acepta solo con el intento abierto según el reloj de PostgreSQL y una versión mayor; el ACK sale tras el commit. La finalización (o el barredor de vencidos, `SKIP LOCKED`) escribe `AttemptFinalized.v1` en la misma transacción; un consumidor dentro del mismo backend califica con `GradeRecorder` (Strategy automática, idempotente por intento, auditado como Sistema). Ver [ADR-009](ADR/009-examenes-concurrentes.md) y [EXAMENES.md](EXAMENES.md).
+`exams` posee intentos (vencimiento fijado por el servidor, preguntas sorteadas sin respuestas), respuestas por intento/pregunta con versión monotónica y un outbox transaccional. El guardado se acepta solo con el intento abierto según el reloj de PostgreSQL y una versión mayor; el ACK sale tras el commit. La finalización (o el barredor de vencidos, `SKIP LOCKED`) escribe `AttemptFinalized.v1` en la misma transacción; un consumidor dentro del mismo backend califica con `GradeRecorder` (Strategy automática, idempotente por intento, auditado como Sistema). Ver [ADR-009](ADR/009-examenes-concurrentes.md) y [EXAMENES.md](guias/EXAMENES.md).
 
 ## Comunicación futura y consistencia
 
@@ -76,14 +76,14 @@ Los contratos son DTO inmutables y versionados; eventos incluyen `eventId`, `occ
 
 Eventos previstos: `CoursePublished.v1`, `AttemptFinalized.v1`, `SubmissionReceived.v1`, `GradeChanged.v1`, `EnrollmentsSynchronized.v1`, `ForumMessagePosted.v1`. No transportar respuestas correctas ni credenciales en eventos de lectura pública. `analytics` y `administration` consumirán proyecciones/eventos, sin acceso a repositorios ajenos.
 
-## Exámenes y auditoría: diseño pendiente
+## Exámenes y auditoría (implementados)
 
-Servidor como fuente de tiempo, snapshot de preguntas/opciones sorteadas, validación de matrícula/ventana/propietario, unicidad intento/pregunta, versión monotónica y finalización idempotente. Cliente conserva pendientes y reintenta sin duplicar. Persistir confirmaciones durables antes de responder; el ADR-004 analiza el buffer Redis del informe. No hay endpoint de exámenes todavía.
+Exámenes (ADR-009): el servidor fija el vencimiento, el intento guarda las preguntas sorteadas sin respuestas, cada respuesta lleva versión monotónica y el ACK se envía tras el commit; finalizar escribe `AttemptFinalized.v1` en el outbox en la misma transacción. Sin buffer Redis (ADR-004/009).
 
-Auditoría futura de solo inserción, cambio y auditoría en una transacción, hash encadenado con orden serializado definido por cadena y verificación periódica/anclaje separado. Privilegios y triggers rechazan alteración de registros. No publicar notas ni edición de exámenes sin esa garantía. No basta un log de aplicación.
+Auditoría (ADR-008/011): entradas de solo inserción con hash encadenado escritas por trigger en la misma transacción que la nota; UPDATE/DELETE/TRUNCATE rechazados por triggers y por privilegios del rol `edutrack_app`; verificación de la cadena y anclaje periódico del último hash fuera de la base (volumen separado o S3).
 
 ## Operación y verificación
 
-Compose: PostgreSQL persistente, API con migraciones y readiness, Nginx sin privilegios sirviendo SPA y proxy. API corre como usuario `node`; secretos runtime. HTTP limitado a loopback, TLS terminado externamente para producción. Imagen única de backend; no Worker separado. La imagen local conserva CLI de migración y dependencias de build; endurecimiento/separación de credenciales de migración pendiente antes de producción.
+Compose: PostgreSQL persistente, API con migraciones y readiness, Nginx sin privilegios sirviendo SPA y proxy. API corre como usuario `node`; secretos runtime. Dos réplicas tras Nginx con TLS 1.2/1.3, servicio `migrate` con credenciales de propietario separado del rol de ejecución, registro SIMULADO como servicio externo (ADR-011). En AWS: CloudFront, ALB, ECS Fargate, RDS y S3 (ADR-012). Imagen única de backend; no Worker separado.
 
-Unitarias y cobertura del núcleo, pruebas frontend con fetch identificado como doble, integración HTTP con Nest compilado + Prisma + PostgreSQL real, y reglas AST. CI usa PostgreSQL real desechable. Carga/failover están definidos, no ejecutados ni garantizados. [C4](diagrams/C4.md) y [4+1](diagrams/MODELO_4_MAS_1.md) separan estado actual y diseño previsto.
+Unitarias y cobertura del núcleo, pruebas frontend con fetch identificado como doble, integración HTTP con Nest compilado + Prisma + PostgreSQL real, y reglas AST. CI usa PostgreSQL real desechable. Carga local con caída de réplica ejecutada (operacion/PRUEBAS_CARGA.md); no certifica los 3000 usuarios del informe. [C4](diagrams/C4.md) y [4+1](diagrams/MODELO_4_MAS_1.md) separan estado actual y diseño previsto.

@@ -1,6 +1,6 @@
 # Resumen de entrega del proyecto EduTrack LMS
 
-EduTrack es un LMS universitario construido como **monolito modular hexagonal**: un único backend NestJS desplegable, una SPA React y PostgreSQL. Tiene 14 módulos con dominio, aplicación, infraestructura y contrato público; una prueba AST impide imports indebidos, ciclos y el acceso a tablas de otro módulo. La fuente funcional es el [informe original](Informe_Trabajo_Final_EduTrack_LMS.pdf). Las decisiones están en los [ADR](ADR/) y la evidencia ejecutada en [VERIFICACION.md](VERIFICACION.md).
+EduTrack es un LMS universitario construido como **monolito modular hexagonal**: un único backend NestJS desplegable, una SPA React y PostgreSQL. Tiene 12 módulos de negocio con dominio, aplicación, infraestructura y contrato público; una prueba AST impide imports indebidos, ciclos y el acceso a tablas de otro módulo. La fuente funcional es el [informe original](../Informe_Trabajo_Final_EduTrack_LMS.pdf). Las decisiones están en los [ADR](../ADR) y la evidencia ejecutada en [VERIFICACION.md](../operacion/VERIFICACION.md).
 
 ## Qué está implementado y es real
 
@@ -39,7 +39,7 @@ En la interfaz, el registro y los informes de similitud muestran la insignia **S
 | Lo mismo eliminando una réplica a mitad de la carga | 2000/2000 confirmados, 0 perdidos, p95 2,3 s durante la caída, réplica recuperada en 13 s |
 | Pruebas | 147 unitarias de backend (98,33 % de líneas del núcleo), 28 de frontend, 48 de integración, arquitectura 7/7, E2E de navegador y smoke |
 
-**No se certifican los 3000 usuarios concurrentes ni el 99,5 % de disponibilidad**: requieren un entorno representativo ([PRUEBAS_CARGA.md](PRUEBAS_CARGA.md)).
+**No se certifican los 3000 usuarios concurrentes ni el 99,5 % de disponibilidad**: requieren un entorno representativo ([PRUEBAS_CARGA.md](../operacion/PRUEBAS_CARGA.md)).
 
 ## Pendiente para producción
 

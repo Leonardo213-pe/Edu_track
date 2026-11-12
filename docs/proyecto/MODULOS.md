@@ -6,8 +6,6 @@
 | --- | --- | --- | --- |
 | identity | Usuarios, credenciales, rol, sesiones, recuperación y eventos de seguridad | `IDENTITY_DIRECTORY`, `IdentityDirectory`, `Principal`, `UserProfile`, `Permission` | Fase 2 implementada: administración, acceso/salida revocable, perfil, contraseñas, estado y roles |
 | courses | Curso/sílabo, unidades/sesiones con duración, materiales/versiones, revisión, historial de cambios y completitud | CourseCatalog, puertos de identidad/matrícula/almacenamiento | CAR-01/02/03 implementados, State/Composite; ADR-006 |
-| materials | Espacio para eventual extracción de capacidad hoy en courses | Sin servicio ni tabla duplicados | Capacidad en courses; no módulo ejecutable separado |
-| course-review | Espacio para eventual extracción de revisión hoy en courses | Sin fachada ficticia | Capacidad en courses; decisión/estado atómicos |
 | assessments | Bancos y preguntas, evaluaciones, ciclo de vida y snapshot publicado | ASSESSMENT_CATALOG: `gradable`, `findGradable` (sin respuestas) | Implementado fase 4 (ADR-008) |
 | exams | Intentos, preguntas sorteadas, respuestas versionadas, vencimiento y outbox | `AttemptFinalized.v1` (outbox); consume ASSESSMENT_CATALOG y GRADE_RECORDER | Implementado fase 5 (ADR-009) |
 | submissions | Entregas de tareas con rúbrica, versiones inmutables y texto extraído | SubmissionReceived.v1 (outbox), SUBMISSION_EVENTS | Implementado (ADR-011) |
@@ -19,7 +17,7 @@
 | audit | Entradas de solo inserción con hash encadenado y verificación | Contrato BD `audit.append_entry`/`audit.record_row_change`, `AUDIT_ACTOR_SETTING` | Implementado fase 4 |
 | administration | Métricas por réplica, panel de monitoreo y alertas operativas | Consume EXAM_MONITOR, SUBMISSION_EVENTS, REGISTRY_SYNC_STATUS, AUDIT_ANCHOR_STATUS; usa NOTIFICATION_SENDER | Implementado (ADR-011) |
 
-ADR-006 sustituye la división persistente inicialmente propuesta: transición, evidencia y versiones pertenecen al agregado courses. Los espacios reservados no acceden a esas tablas. Archivos ya se guardan fuera de PostgreSQL con límites y descarga autorizada. S3/antivirus/conciliación operacional pendientes.
+Los módulos reservados `materials` y `course-review` (carpetas vacías desde ADR-006) se retiraron al cerrar el proyecto: su capacidad vive en `courses`. ADR-006 sustituye la división persistente inicialmente propuesta: transición, evidencia y versiones pertenecen al agregado courses. Los espacios reservados no acceden a esas tablas. Archivos ya se guardan fuera de PostgreSQL con límites y descarga autorizada. S3/antivirus/conciliación operacional pendientes.
 
 Notas y auditoría necesitan una transacción compartida sin exponer entidades/repositorios. Se diseñará un puerto de transacción y un contrato público de escritura de auditoría que use el contexto transaccional opaco; las implementaciones permanecen en adaptadores. No usar un evento en memoria para garantizar auditoría.
 

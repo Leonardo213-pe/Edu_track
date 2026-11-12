@@ -1,6 +1,6 @@
 # ADR-012: despliegue en AWS
 
-Estado: aceptado el 11 de noviembre de 2026 (rama `feat/despliegue-render`, que empezó como preparación para Render y terminó en AWS por decisión del usuario, que dispone de 200 USD de crédito). Sigue el ADR-007 del informe (fig. 12) con las desviaciones de ADR-001 (sin Worker), ADR-009 (sin Redis) y el outbox transaccional (sin SQS). Guía: [DESPLIEGUE_AWS.md](../DESPLIEGUE_AWS.md).
+Estado: aceptado el 11 de noviembre de 2026 (rama `feat/despliegue-render`, que empezó como preparación para Render y terminó en AWS por decisión del usuario, que dispone de 200 USD de crédito). Sigue el ADR-007 del informe (fig. 12) con las desviaciones de ADR-001 (sin Worker), ADR-009 (sin Redis) y el outbox transaccional (sin SQS). Guía: [DESPLIEGUE_AWS.md](../operacion/DESPLIEGUE_AWS.md).
 
 ## Decisiones
 

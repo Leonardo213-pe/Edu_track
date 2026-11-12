@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Despliega EduTrack en AWS (infra/aws/edutrack.yaml) con tu cuenta. Ver docs/DESPLIEGUE_AWS.md.
+  Despliega EduTrack en AWS (infra/aws/edutrack.yaml) con tu cuenta. Ver docs/operacion/DESPLIEGUE_AWS.md.
 .DESCRIPTION
   Requiere AWS CLI v2 configurado (aws configure / aws sso login), Docker Desktop y Node 24 en el PATH.
   Nunca guarda credenciales: usa las del perfil de AWS CLI activo.

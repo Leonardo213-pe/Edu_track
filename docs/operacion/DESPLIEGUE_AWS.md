@@ -1,6 +1,6 @@
 # Despliegue en AWS
 
-Arquitectura del informe (fig. 12, ADR-007 del informe) con las decisiones de este repositorio ([ADR-012](ADR/012-despliegue-aws.md)). Plantilla: [`infra/aws/edutrack.yaml`](../infra/aws/edutrack.yaml). Script: [`scripts/aws/deploy.ps1`](../scripts/aws/deploy.ps1).
+Arquitectura del informe (fig. 12, ADR-007 del informe) con las decisiones de este repositorio ([ADR-012](../ADR/012-despliegue-aws.md)). Plantilla: [`infra/aws/edutrack.yaml`](../../infra/aws/edutrack.yaml). Script: [`scripts/aws/deploy.ps1`](../../scripts/aws/deploy.ps1).
 
 ```
 Navegador ──HTTPS──► CloudFront ──► S3 (SPA)

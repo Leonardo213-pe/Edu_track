@@ -1,6 +1,6 @@
 # Plan de carga y resiliencia
 
-Estado: **mediciones locales ejecutadas (un proceso y Compose con 2 réplicas y caída inducida); certificación pendiente.** Los exámenes y el autoguardado existen desde la fase 5 ([ADR-009](ADR/009-examenes-concurrentes.md)). No se debe medir solo salud o login y presentarlo como capacidad de exámenes. Herramienta prevista para el entorno representativo: k6, en generadores separados de las réplicas del LMS.
+Estado: **mediciones locales ejecutadas (un proceso y Compose con 2 réplicas y caída inducida); certificación pendiente.** Los exámenes y el autoguardado existen desde la fase 5 ([ADR-009](../ADR/009-examenes-concurrentes.md)). No se debe medir solo salud o login y presentarlo como capacidad de exámenes. Herramienta prevista para el entorno representativo: k6, en generadores separados de las réplicas del LMS.
 
 ## Medición local ejecutada (fase 5)
 
