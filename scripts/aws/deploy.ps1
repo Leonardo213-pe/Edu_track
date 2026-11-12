@@ -13,7 +13,7 @@
 #>
 [CmdletBinding()]
 param(
-  [string]$Region = 'us-east-1',
+  [string]$Region = 'us-east-2',   # la organización de la cuenta del proyecto solo permite us-east-2 (Ohio)
   [string]$StackName = 'edutrack',
   [string]$Tag = '',
   [ValidateSet('true', 'false')][string]$DbMultiAZ = 'false',
@@ -26,7 +26,9 @@ param(
   [switch]$Pause,
   [switch]$Resume
 )
-$ErrorActionPreference = 'Stop'
+# Continue: in Windows PowerShell 5.1 any stderr line of aws/docker/npm becomes a terminating error under 'Stop' when
+# output is redirected. Every native call below checks $LASTEXITCODE and throws explicitly instead.
+$ErrorActionPreference = 'Continue'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 Set-Location $root
 
@@ -68,7 +70,7 @@ Write-Host "Cuenta $account, región $Region, stack $StackName"
 
 if ($Pause -or $Resume) {
   $count = if ($Pause) { 0 } else { $ApiDesiredCount }
-  $keep = 'ApiImageUri', 'RegistryImageUri', 'DbInstanceClass', 'DbEngineVersion', 'DbMultiAZ', 'DbPoolMax', 'TrustProxy', 'DomainName', 'CertificateArn' |
+  $keep = 'ApiImageUri', 'RegistryImageUri', 'DbInstanceClass', 'DbEngineVersion', 'DbBackupRetentionDays', 'DbMultiAZ', 'DbPoolMax', 'TrustProxy', 'DomainName', 'CertificateArn' |
     ForEach-Object { "ParameterKey=$_,UsePreviousValue=true" }
   Invoke-Aws cloudformation update-stack --stack-name $StackName --use-previous-template --capabilities CAPABILITY_IAM `
     --parameters @keep "ParameterKey=ApiDesiredCount,ParameterValue=$count" | Out-Null
@@ -89,7 +91,8 @@ if (-not $CreateAdmin -and -not $SeedDemo) {
       & aws ecr describe-repositories --repository-names $repo --region $Region *> $null
       if ($LASTEXITCODE -ne 0) { Invoke-Aws ecr create-repository --repository-name $repo --image-scanning-configuration scanOnPush=true | Out-Null }
     }
-    (Invoke-Aws ecr get-login-password) | docker login --username AWS --password-stdin $registry
+    # cmd pipes raw bytes; a Windows PowerShell 5.1 pipe re-encodes the token and ECR answers 400.
+    cmd /c "aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $registry"
     if ($LASTEXITCODE -ne 0) { throw 'docker login a ECR falló' }
     docker build --platform linux/amd64 -f infra/api.Dockerfile -t $apiImage .; if ($LASTEXITCODE -ne 0) { throw 'build api' }
     docker build --platform linux/amd64 -f infra/registry.Dockerfile -t $registryImage .; if ($LASTEXITCODE -ne 0) { throw 'build registry' }

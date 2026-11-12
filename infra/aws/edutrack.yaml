@@ -25,6 +25,12 @@ Parameters:
     Type: String
     Default: '17.11'
     Description: PostgreSQL 17 minor version available in your region (the project is verified on PostgreSQL 17)
+  DbBackupRetentionDays:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 35
+    Description: Automated backup retention (accounts on the AWS free plan allow at most 1 day)
   DbMultiAZ:
     Type: String
     Default: 'false'
@@ -155,7 +161,7 @@ Resources:
       DBSubnetGroupName: !Ref DbSubnetGroup
       VPCSecurityGroups: [!Ref DbSecurityGroup]
       PubliclyAccessible: false
-      BackupRetentionPeriod: 7
+      BackupRetentionPeriod: !Ref DbBackupRetentionDays
       DeletionProtection: false
 
   # ---------- Object storage ----------

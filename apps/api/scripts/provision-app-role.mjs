@@ -20,7 +20,10 @@ const ident = client.escapeIdentifier(role);
 try {
   await client.query('BEGIN');
   const exists = (await client.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [role])).rowCount;
-  await client.query(`${exists ? 'ALTER' : 'CREATE'} ROLE ${ident} WITH LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS INHERIT PASSWORD ${client.escapeLiteral(password)}`);
+  // Only LOGIN and the password are set: a new role is already NOSUPERUSER/NOCREATEDB/NOCREATEROLE/NOREPLICATION/
+  // NOBYPASSRLS, and managed databases (Amazon RDS) forbid non-superusers from even restating those attributes.
+  // The self-check below fails the deployment if the role is elevated in any way.
+  await client.query(`${exists ? 'ALTER' : 'CREATE'} ROLE ${ident} WITH LOGIN PASSWORD ${client.escapeLiteral(password)}`);
   const database = (await client.query('SELECT current_database() AS name')).rows[0].name;
   await client.query(`GRANT CONNECT ON DATABASE ${client.escapeIdentifier(database)} TO ${ident}`);
   await client.query(`REVOKE CREATE ON DATABASE ${client.escapeIdentifier(database)} FROM ${ident}`);
@@ -41,7 +44,7 @@ try {
 
 // Self-check of the guarantees (fails the deployment if any is violated).
 const checks = (await client.query(`SELECT
-    (SELECT rolsuper OR rolcreatedb OR rolcreaterole FROM pg_roles WHERE rolname = $1) AS elevated,
+    (SELECT rolsuper OR rolcreatedb OR rolcreaterole OR rolreplication OR rolbypassrls FROM pg_roles WHERE rolname = $1) AS elevated,
     (SELECT count(*)::int FROM pg_class c JOIN pg_roles r ON r.oid = c.relowner WHERE r.rolname = $1) AS owned,
     has_table_privilege($1, 'audit.entries', 'UPDATE') AS audit_update,
     has_table_privilege($1, 'audit.entries', 'DELETE') AS audit_delete,

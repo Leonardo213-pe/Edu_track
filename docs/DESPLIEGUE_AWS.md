@@ -21,7 +21,7 @@ Secrets Manager: contraseñas de BD, JWT, clave del registro y del origen · Clo
 | RDS Multi-AZ | Parámetro `DbMultiAZ` (por defecto `false`) | Duplica el costo; actívalo para la exposición |
 | WAF | No incluido | Costo; el ALB solo acepta tráfico que trae la cabecera secreta de CloudFront |
 
-## Costo aproximado (us-east-1)
+## Costo aproximado (us-east-2)
 
 ALB ~16 USD/mes, 2 tareas API (0,25 vCPU/1 GB) + registro ~20 USD/mes, RDS db.t4g.micro ~13 USD/mes (Multi-AZ ~26), S3/CloudFront/Secrets/Logs ~3 USD/mes. **Total ~50 USD/mes** (~65 con Multi-AZ). Con 200 USD de crédito: unos 3-4 meses, más si usas `-Pause` entre usos. Revisa la caducidad de tus créditos en Billing → Credits y crea una alerta en Budgets.
 
@@ -33,9 +33,9 @@ ALB ~16 USD/mes, 2 tareas API (0,25 vCPU/1 GB) + registro ~20 USD/mes, RDS db.t4
 ## Pasos
 
 ```powershell
-.\scripts\aws\deploy.ps1 -Region us-east-1            # 1. imágenes a ECR, stack (15-25 min la primera vez) y SPA
-.\scripts\aws\deploy.ps1 -Region us-east-1 -CreateAdmin   # 2. primer ADMIN admin@institucion.edu.pe (pide contraseña)
-.\scripts\aws\deploy.ps1 -Region us-east-1 -SeedDemo      # 3. opcional: data demo ficticia (misma contraseña)
+.\scripts\aws\deploy.ps1 -Region us-east-2            # 1. imágenes a ECR, stack (15-25 min la primera vez) y SPA
+.\scripts\aws\deploy.ps1 -Region us-east-2 -CreateAdmin   # 2. primer ADMIN admin@institucion.edu.pe (pide contraseña)
+.\scripts\aws\deploy.ps1 -Region us-east-2 -SeedDemo      # 3. opcional: data demo ficticia (misma contraseña)
 ```
 
 Al terminar, el script imprime la URL (`https://xxxx.cloudfront.net`). Cada nueva versión: repetir el paso 1 (las tareas aplican las migraciones al arrancar).
