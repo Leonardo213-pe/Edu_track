@@ -43,7 +43,7 @@ Parameters:
   TrustProxy:
     Type: String
     Default: '2'
-    Description: Proxy hops in front of the API (ALB + CloudFront); verify the client IP in "Eventos de seguridad"
+    Description: Proxy hops in front of the API (CloudFront + ALB); determines the client IP used by the login rate limit
   DomainName:
     Type: String
     Default: ''

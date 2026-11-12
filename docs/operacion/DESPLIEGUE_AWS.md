@@ -46,7 +46,7 @@ Al terminar, el script imprime la URL (`https://xxxx.cloudfront.net`). Cada nuev
 ## Después del primer despliegue
 
 1. Entra con el ADMIN y **cambia su contraseña**: viajó como parámetro de una tarea puntual de ECS.
-2. **IP del cliente:** abre «Eventos de seguridad» e inicia sesión. La IP registrada debe ser tu IP pública. Si aparece una IP de AWS, ajusta el parámetro `TrustProxy` (por defecto `2`: CloudFront + ALB). Si no coincide, los límites de login se aplicarían a todos a la vez.
+2. **IP del cliente (`TrustProxy`):** con `2` la API toma la IP del visitante saltando CloudFront y el ALB. Los eventos de seguridad no guardan IPs, así que no se puede comprobar desde la interfaz; si el límite de login (5/min por IP y réplica) bloquease a todos a la vez, el valor sería incorrecto.
 3. **TLS:** con la URL `*.cloudfront.net`, AWS no permite exigir TLS ≥ 1.2 (los navegadores actuales negocian 1.3). Para forzarlo usa `-DomainName` y `-CertificateArn` (certificado ACM en us-east-1).
 4. **Correo:** no hay SMTP configurado; la recuperación de contraseña queda registrada como fallida. Añade `SMTP_*` de un proveedor con TLS (Amazon SES, Brevo…) en la definición de tarea si la necesitas.
 

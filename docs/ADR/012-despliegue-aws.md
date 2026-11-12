@@ -25,7 +25,7 @@ Estado: aceptado el 11 de noviembre de 2026 (rama `feat/despliegue-render`, que 
 
 - No se ha desplegado en una cuenta real: requiere las credenciales del usuario. La plantilla está validada con cfn-lint y los componentes nuevos se probaron en local (S3 real, imagen, 52/52 de integración).
 - Con el dominio `*.cloudfront.net` no se puede exigir TLS ≥ 1.2 en el visor. Exigirlo requiere un dominio propio y un certificado de ACM (parámetros opcionales).
-- `TrustProxy=2` (CloudFront + ALB) debe confirmarse tras el primer despliegue con la IP registrada en «Eventos de seguridad».
+- `TrustProxy=2` (CloudFront + ALB) no se pudo confirmar con una medición: los eventos de seguridad no guardan IPs. Afecta solo al límite de login por IP.
 - La contraseña inicial del ADMIN viaja como parámetro de la tarea puntual: hay que cambiarla tras el primer acceso.
 - El limitador de peticiones sigue en memoria por réplica (pendiente desde ADR-007/011).
 - Costo estimado: ~50 USD/mes (~65 con Multi-AZ); `-Pause` reduce el gasto entre usos.

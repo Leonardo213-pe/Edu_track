@@ -36,6 +36,15 @@ Despliegue real en la cuenta del proyecto (cuenta 445942110252), en orden:
 4. Segundo stack: el contenedor `migrate` aplicó las **10 migraciones en RDS**, pero el aprovisionamiento del rol falló: en RDS el propietario no es superusuario y no puede declarar `NOSUPERUSER/NOREPLICATION/NOBYPASSRLS`. Corregido declarando solo `LOGIN/PASSWORD` y ampliando la autoverificación; verificado en local (los 5 atributos en `f`) y en AWS con una tarea puntual: «least privilege verified» y «Nest application successfully started» con TLS verificado hacia RDS.
 5. Un stack creado sin rollback no admite reemplazar la definición de tarea, así que se recreó con la imagen corregida (`f968e3f`).
 
+Resultado (12 de noviembre, us-east-2): stack `CREATE_COMPLETE` y `deploy.ps1` con código 0. Comprobado por la URL pública https://d9wi1r12i975h.cloudfront.net:
+- La SPA responde HTTP 200 y `/api/health/ready` devuelve `{"status":"ready"}`.
+- Tareas puntuales de ECS: creación del ADMIN y siembra demo, ambas con código 0.
+- Login por HTTPS como docente (ve SW-401), como estudiante (Ana ve SW-401 y MA-201) y como ADMIN.
+- El panel de monitoreo muestra **2 réplicas vivas** en subredes distintas; la tercera fila es la instancia temporal de la siembra, ya detenida.
+- `/api/audit/anchors/verify` responde `configured: true, valid: true` con 0 anclajes todavía (el primero se toma en el siguiente ciclo de 10 min).
+
+No comprobado: la IP de cliente que usa el limitador detrás de CloudFront + ALB (`TrustProxy=2`), porque los eventos de seguridad no guardan IPs.
+
 ## Cierre del proyecto (partes A, B y C), 11 de noviembre de 2026
 
 Rama `feat/cierre-proyecto`, creada desde `main` tras fusionar por fast-forward `feat/fase8-colaboracion-analitica` (`21c1944`). Decisiones en [ADR-011](../ADR/011-cierre-matriculas-tareas-operacion.md); resumen en [ENTREGA.md](../proyecto/ENTREGA.md). Durante el desarrollo se ejecutaron solo typecheck y pruebas unitarias en cada punto de guardado (commits `1ec46a5` parte A, `e1c78fd` parte B, `9788922` parte C). La verificación pesada se ejecutó **una vez al final**, en Windows 11 con Docker Desktop:
