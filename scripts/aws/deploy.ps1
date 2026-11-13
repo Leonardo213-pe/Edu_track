@@ -72,12 +72,26 @@ if ($Pause -or $Resume) {
   $count = if ($Pause) { 0 } else { $ApiDesiredCount }
   $keep = 'ApiImageUri', 'RegistryImageUri', 'DbInstanceClass', 'DbEngineVersion', 'DbBackupRetentionDays', 'DbMultiAZ', 'DbPoolMax', 'TrustProxy', 'DomainName', 'CertificateArn' |
     ForEach-Object { "ParameterKey=$_,UsePreviousValue=true" }
+  $db = (Invoke-Aws cloudformation describe-stack-resource --stack-name $StackName --logical-resource-id Database --query StackResourceDetail.PhysicalResourceId --output text).Trim()
+  $cluster = (Invoke-Aws cloudformation describe-stack-resource --stack-name $StackName --logical-resource-id Cluster --query StackResourceDetail.PhysicalResourceId --output text).Trim()
+  $registryService = (Invoke-Aws cloudformation describe-stack-resource --stack-name $StackName --logical-resource-id RegistryService --query StackResourceDetail.PhysicalResourceId --output text).Trim()
+  if ($Resume) {
+    # The database must be available BEFORE the API tasks start: each task runs the migrations first.
+    $state = (Invoke-Aws rds describe-db-instances --db-instance-identifier $db --query 'DBInstances[0].DBInstanceStatus' --output text).Trim()
+    if ($state -eq 'stopped') { Invoke-Aws rds start-db-instance --db-instance-identifier $db | Out-Null }
+    Write-Host 'Esperando a que RDS esté disponible (5-10 min)...'
+    Invoke-Aws rds wait db-instance-available --db-instance-identifier $db | Out-Null
+    Invoke-Aws ecs update-service --cluster $cluster --service $registryService --desired-count 1 | Out-Null
+  }
+  Write-Host "API a $count réplica(s)..."
   Invoke-Aws cloudformation update-stack --stack-name $StackName --use-previous-template --capabilities CAPABILITY_IAM `
     --parameters @keep "ParameterKey=ApiDesiredCount,ParameterValue=$count" | Out-Null
   Invoke-Aws cloudformation wait stack-update-complete --stack-name $StackName | Out-Null
-  $db = (Invoke-Aws cloudformation describe-stack-resource --stack-name $StackName --logical-resource-id Database --query StackResourceDetail.PhysicalResourceId --output text).Trim()
-  if ($Pause) { Invoke-Aws rds stop-db-instance --db-instance-identifier $db | Out-Null; Write-Host 'API en 0 réplicas y RDS detenida (AWS la reinicia sola tras 7 días). El ALB y CloudFront siguen facturando poco.' }
-  else { Invoke-Aws rds start-db-instance --db-instance-identifier $db | Out-Null; Write-Host "RDS arrancando y API con $count réplicas." }
+  if ($Pause) {
+    Invoke-Aws ecs update-service --cluster $cluster --service $registryService --desired-count 0 | Out-Null
+    Invoke-Aws rds stop-db-instance --db-instance-identifier $db | Out-Null
+    Write-Host 'Pausado: API y registro en 0 tareas, RDS detenida (AWS la reinicia sola a los 7 días). El ALB, CloudFront y S3 siguen facturando poco.'
+  } else { Write-Host "Reanudado con $count réplicas: $(Get-Output 'SiteUrl')" }
   return
 }
 
